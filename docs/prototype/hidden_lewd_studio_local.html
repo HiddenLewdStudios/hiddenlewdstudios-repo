@@ -1,0 +1,1280 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Hidden Lewd Studio - Request System</title>
+    <!-- HTML2Canvas to convert summary into PNG image -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <!-- EmailJS SDK -->
+    <script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@3/dist/email.min.js"></script>
+    <style>
+      :root {
+        --bg-main: #0e0f13;
+        --bg-card: #161820;
+        --bg-inner: #1e212b;
+        --accent-pink: #ff3366;
+        --accent-pink-gradient: linear-gradient(135deg, #ff3366, #ff6b8b);
+        --accent-cyan: #00d2ff;
+        --border-color: #2b3040;
+        --text-main: #f0f2f7;
+        --text-muted: #8e95a5;
+        --input-bg: #12141a;
+        --radius: 12px;
+      }
+
+      * {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+        font-family:
+          "Segoe UI",
+          system-ui,
+          -apple-system,
+          sans-serif;
+      }
+      body {
+        background-color: var(--bg-main);
+        color: var(--text-main);
+        min-height: 100vh;
+        padding: 25px 15px;
+      }
+
+      .container {
+        max-width: 900px;
+        margin: 0 auto;
+      }
+
+      /* Header Banner */
+      .brand-header {
+        text-align: center;
+        padding: 30px 20px;
+        background: radial-gradient(circle at center, #261628 0%, #0e0f13 80%);
+        border: 1px solid var(--border-color);
+        border-radius: var(--radius);
+        margin-bottom: 25px;
+        box-shadow: 0 8px 30px rgba(255, 51, 102, 0.12);
+      }
+      .brand-title {
+        font-size: 2.3rem;
+        font-weight: 900;
+        letter-spacing: 1px;
+        text-transform: uppercase;
+        background: linear-gradient(90deg, #ff3366, #ff758c, #00d2ff);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        text-shadow: 0 0 20px rgba(255, 51, 102, 0.3);
+      }
+      .brand-sub {
+        color: var(--accent-cyan);
+        font-size: 0.95rem;
+        font-weight: 600;
+        margin-top: 6px;
+        letter-spacing: 2px;
+        text-transform: uppercase;
+      }
+
+      /* Section Boxes */
+      .section-card {
+        background: var(--bg-card);
+        border: 1px solid var(--border-color);
+        border-radius: var(--radius);
+        padding: 24px;
+        margin-bottom: 22px;
+      }
+      .section-header {
+        font-size: 1.15rem;
+        font-weight: 700;
+        color: #fff;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        margin-bottom: 18px;
+        padding-bottom: 10px;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.07);
+      }
+      .section-header span.tag {
+        font-size: 0.75rem;
+        background: rgba(255, 51, 102, 0.2);
+        color: var(--accent-pink);
+        padding: 2px 8px;
+        border-radius: 4px;
+      }
+
+      /* Form Fields */
+      .form-group {
+        margin-bottom: 18px;
+      }
+      .form-group:last-child {
+        margin-bottom: 0;
+      }
+      label {
+        display: block;
+        font-size: 0.88rem;
+        font-weight: 600;
+        color: var(--text-muted);
+        margin-bottom: 8px;
+      }
+      label span.req {
+        color: var(--accent-pink);
+      }
+      input[type="text"],
+      input[type="email"],
+      select,
+      textarea {
+        width: 100%;
+        background: var(--input-bg);
+        border: 1px solid var(--border-color);
+        color: #fff;
+        padding: 12px 14px;
+        border-radius: 8px;
+        font-size: 0.95rem;
+        outline: none;
+        transition:
+          border 0.2s,
+          box-shadow 0.2s;
+      }
+      input[type="text"]:focus,
+      input[type="email"]:focus,
+      select:focus,
+      textarea:focus {
+        border-color: var(--accent-pink);
+        box-shadow: 0 0 0 2px rgba(255, 51, 102, 0.25);
+      }
+      textarea {
+        min-height: 80px;
+        resize: vertical;
+      }
+
+      .grid-2 {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 15px;
+      }
+      @media (max-width: 650px) {
+        .grid-2 {
+          grid-template-columns: 1fr;
+        }
+      }
+
+      /* Character Slots Layout */
+      .slots-container {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 15px;
+        margin-top: 15px;
+      }
+      .char-card {
+        background: var(--bg-inner);
+        border: 1px solid var(--border-color);
+        border-radius: 10px;
+        padding: 14px;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        position: relative;
+      }
+      .char-badge {
+        position: absolute;
+        top: 10px;
+        left: 10px;
+        font-size: 0.7rem;
+        background: rgba(0, 0, 0, 0.6);
+        padding: 2px 6px;
+        border-radius: 4px;
+        color: var(--accent-cyan);
+      }
+      .avatar-wrapper {
+        position: relative;
+        width: 110px;
+        height: 110px;
+        margin-top: 10px;
+        margin-bottom: 12px;
+      }
+      .char-avatar {
+        width: 100%;
+        height: 100%;
+        border-radius: 8px;
+        object-fit: cover;
+        border: 2px solid var(--border-color);
+        background: #111;
+      }
+      .version-pills {
+        display: flex;
+        gap: 4px;
+        justify-content: center;
+        position: absolute;
+        bottom: -8px;
+        left: 0;
+        right: 0;
+      }
+      .ver-btn {
+        background: #12141a;
+        border: 1px solid var(--border-color);
+        color: var(--text-muted);
+        font-size: 0.68rem;
+        font-weight: 700;
+        width: 22px;
+        height: 22px;
+        border-radius: 50%;
+        cursor: pointer;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        transition: all 0.2s;
+      }
+      .ver-btn.active {
+        background: var(--accent-pink);
+        color: #fff;
+        border-color: var(--accent-pink);
+        transform: scale(1.15);
+      }
+      .char-meta {
+        width: 100%;
+        text-align: center;
+        margin-top: 8px;
+      }
+      .char-series-sub {
+        font-size: 0.72rem;
+        color: var(--accent-cyan);
+        text-transform: uppercase;
+        margin-bottom: 6px;
+        min-height: 16px;
+      }
+
+      /* Buttons */
+      .btn {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 8px;
+        font-weight: 600;
+        border-radius: 8px;
+        cursor: pointer;
+        border: none;
+        transition: 0.2s;
+      }
+      .btn-pink {
+        background: var(--accent-pink-gradient);
+        color: #fff;
+        padding: 12px 24px;
+        font-size: 1rem;
+        box-shadow: 0 4px 15px rgba(255, 51, 102, 0.35);
+      }
+      .btn-pink:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 6px 20px rgba(255, 51, 102, 0.5);
+      }
+      .btn-outline {
+        background: transparent;
+        border: 1px solid var(--border-color);
+        color: var(--text-main);
+        padding: 8px 14px;
+        font-size: 0.82rem;
+      }
+      .btn-outline:hover {
+        border-color: var(--accent-cyan);
+        color: var(--accent-cyan);
+      }
+      .btn-cyan {
+        background: #00d2ff;
+        color: #000;
+        padding: 10px 18px;
+        font-size: 0.9rem;
+      }
+
+      /* Randomize Tools Bar */
+      .tools-bar {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px;
+        margin-bottom: 15px;
+        background: var(--bg-inner);
+        padding: 12px;
+        border-radius: 8px;
+        align-items: center;
+        justify-content: space-between;
+      }
+
+      /* Autocomplete Datalist */
+      input::-webkit-calendar-picker-indicator {
+        opacity: 0.6;
+        cursor: pointer;
+        filter: invert(1);
+      }
+
+      /* Modal Styling */
+      .modal-overlay {
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: rgba(0, 0, 0, 0.85);
+        backdrop-filter: blur(6px);
+        display: none;
+        align-items: center;
+        justify-content: center;
+        z-index: 1000;
+        padding: 20px;
+      }
+      .modal-box {
+        background: var(--bg-card);
+        border: 1px solid var(--border-color);
+        border-radius: var(--radius);
+        width: 100%;
+        max-width: 650px;
+        max-height: 90vh;
+        overflow-y: auto;
+        padding: 26px;
+        box-shadow: 0 10px 40px rgba(0, 0, 0, 0.8);
+        position: relative;
+      }
+      .modal-close {
+        position: absolute;
+        top: 15px;
+        right: 18px;
+        background: none;
+        border: none;
+        color: var(--text-muted);
+        font-size: 1.4rem;
+        cursor: pointer;
+      }
+      .thank-you-banner {
+        background: linear-gradient(135deg, rgba(255, 51, 102, 0.15), rgba(0, 210, 255, 0.15));
+        border: 1px solid var(--accent-pink);
+        border-radius: 10px;
+        padding: 18px;
+        text-align: center;
+        margin-bottom: 20px;
+      }
+
+      /* Receipt Card To Export as PNG */
+      #receiptCard {
+        background: #111319;
+        border: 2px solid #282c3c;
+        border-radius: 12px;
+        padding: 20px;
+        color: #fff;
+        margin-bottom: 20px;
+      }
+      .receipt-header {
+        display: flex;
+        justify-content: space-between;
+        border-bottom: 2px solid var(--accent-pink);
+        padding-bottom: 12px;
+        margin-bottom: 15px;
+      }
+      .receipt-chars {
+        display: flex;
+        gap: 10px;
+        flex-wrap: wrap;
+        margin: 15px 0;
+      }
+      .receipt-char-item {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        background: #1a1c26;
+        border: 1px solid #33394d;
+        padding: 6px 10px;
+        border-radius: 6px;
+      }
+      .receipt-char-item img {
+        width: 38px;
+        height: 38px;
+        border-radius: 4px;
+        object-fit: cover;
+      }
+      .receipt-field {
+        margin-bottom: 8px;
+        font-size: 0.85rem;
+        line-height: 1.4;
+      }
+      .receipt-field strong {
+        color: var(--accent-cyan);
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <!-- Brand Banner -->
+      <div class="brand-header">
+        <h1 class="brand-title">Hidden Lewd Studio</h1>
+        <p class="brand-sub">Supporter Commission & Request Portal</p>
+      </div>
+
+      <form
+        id="requestForm"
+        onsubmit="
+          event.preventDefault();
+          submitRequest();
+        "
+      >
+        <!-- 1. Identification Section -->
+        <div class="section-card">
+          <div class="section-header">
+            📜 Scroll of Identification
+            <span class="tag">Required</span>
+          </div>
+
+          <div class="form-group">
+            <label>1. Platform Subscribed to <span class="req">*</span></label>
+            <select id="subPlatform" required>
+              <option value="" disabled selected>Select your subscription platform...</option>
+              <option value="SubscribeStar">⭐ SubscribeStar</option>
+              <option value="Fanbox">📦 Fanbox</option>
+            </select>
+          </div>
+
+          <div class="grid-2">
+            <div class="form-group">
+              <label
+                >2. Supporter Nickname (Exact name registered on platform)
+                <span class="req">*</span></label
+              >
+              <input type="text" id="supporterNick" placeholder="e.g. Shark Golden" required />
+            </div>
+            <div class="form-group">
+              <label
+                >3. Contact E-mail
+                <span style="font-weight: 400; font-size: 0.8rem">(Optional)</span></label
+              >
+              <input type="email" id="supporterEmail" placeholder="yourname@domain.com" />
+            </div>
+          </div>
+
+          <div class="form-group" style="margin-top: 15px">
+            <label
+              >4. 🥷 Shinobi Registration (What is your current rank?)
+              <span class="req">*</span></label
+            >
+            <select id="shinobiRank" required onchange="handleRankChange()">
+              <option value="" disabled selected>Select your current rank...</option>
+              <option value="Genin">🌱 Genin (Interview Only)</option>
+              <option value="Chunin">⚔️ Chunin (Interview, Illustration)</option>
+              <option value="Jounin">🐍 Jounin (Interview, Illustration)</option>
+              <option value="Anbu">🎭 Anbu (Interview, Illustration, Image Set)</option>
+              <option value="Akatsuki">🌌 Akatsuki (All Tiers + Quick Story Event)</option>
+              <option value="Kara">🔷 Kara (All Tiers + Quick Story Event)</option>
+              <option value="Kage">👑 Kage (All Tiers + Quick Story Event)</option>
+            </select>
+          </div>
+
+          <div class="form-group" style="margin-top: 15px">
+            <label>5. 🗳️ Request Category <span class="req">*</span></label>
+            <select id="requestCategory" required onchange="handleCategoryChange()">
+              <option value="" disabled selected>Please select a Shinobi Rank first...</option>
+            </select>
+          </div>
+        </div>
+
+        <!-- 2. Characters & Cast Section -->
+        <div class="section-card" id="characterSection">
+          <div class="section-header">
+            👥 Cast & Characters Selection
+            <span class="tag" id="charCounterTag">Up to 4 Characters</span>
+          </div>
+
+          <div class="tools-bar">
+            <div style="display: flex; align-items: center; gap: 10px">
+              <label style="margin: 0; font-size: 0.85rem">Number of Characters:</label>
+              <select
+                id="charCountSelect"
+                style="width: auto; padding: 6px 12px"
+                onchange="renderSlots()"
+              >
+                <option value="1">1 Character</option>
+                <option value="2" selected>2 Characters</option>
+                <option value="3">3 Characters</option>
+                <option value="4">4 Characters</option>
+              </select>
+            </div>
+
+            <div style="display: flex; gap: 8px">
+              <button type="button" class="btn btn-outline" onclick="randomizeCharacters(true)">
+                🎲 Same Franchise
+              </button>
+              <button type="button" class="btn btn-outline" onclick="randomizeCharacters(false)">
+                🌪️ Crossover
+              </button>
+            </div>
+          </div>
+
+          <!-- Character Slots -->
+          <div class="slots-container" id="slotsContainer"></div>
+          <datalist id="charactersList"></datalist>
+        </div>
+
+        <!-- 3. Category Dependent Options -->
+        <!-- A: Interview Option -->
+        <div class="section-card" id="interviewSection" style="display: none">
+          <div class="section-header">🎤 Character Interview Questions</div>
+          <div class="form-group">
+            <label
+              >Ask your question or curiosity for the selected character:
+              <span class="req">*</span></label
+            >
+            <textarea
+              id="interviewQuestion"
+              placeholder="Write the question or topic you want Hidden Lewd Studio to ask the character..."
+            ></textarea>
+          </div>
+        </div>
+
+        <!-- B: Tags & Scene Details (Illustration, Image Set, Quick Story) -->
+        <div class="section-card" id="sceneDetailsSection">
+          <div class="section-header">
+            🏷️ Concept Tags & Scene Details
+            <button
+              type="button"
+              class="btn btn-outline"
+              style="font-size: 0.75rem; padding: 4px 8px; margin-left: auto"
+              onclick="randomizeTags()"
+            >
+              🎲 Randomize Tags
+            </button>
+          </div>
+
+          <div class="grid-2">
+            <div class="form-group">
+              <label>Pose & Action Details (Tags or description) <span class="req">*</span></label>
+              <input
+                type="text"
+                id="tagAction"
+                placeholder="e.g. Doggy style, Ass grab, Caught off guard"
+                required
+              />
+            </div>
+            <div class="form-group">
+              <label>Setting / Context / Environment <span class="req">*</span></label>
+              <input
+                type="text"
+                id="tagContext"
+                placeholder="e.g. Hot springs, Classroom after hours, On couch"
+                required
+              />
+            </div>
+          </div>
+
+          <div class="grid-2" style="margin-top: 15px">
+            <div class="form-group">
+              <label>Relationship Dynamic</label>
+              <input
+                type="text"
+                id="tagRelation"
+                placeholder="e.g. Dominance, Shy confession, Teacher x Student"
+              />
+            </div>
+            <div class="form-group">
+              <label>Plot of the Scene (Optional)</label>
+              <input
+                type="text"
+                id="scenePlot"
+                placeholder="e.g. A bet lost after training, secret encounter"
+              />
+            </div>
+          </div>
+        </div>
+
+        <!-- C: Quick Story Event Briefing (Only for Narrative Sets) -->
+        <div class="section-card" id="storyBriefingSection" style="display: none">
+          <div class="section-header">📜 Quick Story Event - Script / Briefing</div>
+          <div class="form-group">
+            <label
+              >Story Synopsis, Dialogue or Scene Progression (Up to 5 Pages):
+              <span class="req">*</span></label
+            >
+            <textarea
+              id="storyBriefing"
+              placeholder="Describe the scene progression from page 1 to 5, dialogues or general outline..."
+            ></textarea>
+          </div>
+        </div>
+
+        <!-- 4. Artistic Direction & Preferences -->
+        <div class="section-card">
+          <div class="section-header">🎨 Artistic Direction</div>
+
+          <div class="form-group">
+            <label>Reference Images or Pose Links (Optional)</label>
+            <input
+              type="text"
+              id="referenceLinks"
+              placeholder="Paste links to references (Imgur, Pinterest, Twitter, etc.)"
+            />
+          </div>
+
+          <div class="grid-2">
+            <div class="form-group">
+              <label>Do you want to be credited in the final post?</label>
+              <select id="creditPreference">
+                <option value="Yes - Credit my nickname">Yes - Credit my nickname</option>
+                <option value="Anonymous">Anonymous / No credit</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label>Creative Freedom Level</label>
+              <select id="freedomLevel">
+                <option value="Balanced - Follow idea, adjust when needed">
+                  Balanced - Follow idea, adjust when needed
+                </option>
+                <option value="Full freedom - I trust the artist's vision">
+                  Full freedom - I trust the artist's vision
+                </option>
+                <option value="Strict - Follow references closely">
+                  Strict - Follow references closely
+                </option>
+              </select>
+            </div>
+          </div>
+        </div>
+
+        <!-- Submit Section -->
+        <div style="text-align: center; margin-top: 30px; margin-bottom: 50px">
+          <button type="submit" class="btn btn-pink" style="padding: 16px 40px; font-size: 1.15rem">
+            🚀 Send Request
+          </button>
+        </div>
+      </form>
+    </div>
+
+    <!-- Confirmation & Receipt Modal -->
+    <div class="modal-overlay" id="thankYouModal">
+      <div class="modal-box">
+        <button class="modal-close" onclick="closeModal()">✕</button>
+
+        <!-- Thank you message -->
+        <div class="thank-you-banner">
+          <h2 style="color: #fff; font-size: 1.4rem; margin-bottom: 8px">
+            Thank You for Your Support!
+          </h2>
+          <p style="color: var(--text-main); font-size: 0.95rem; line-height: 1.5">
+            Thank you for trusting <strong>Hidden Lewd Studio</strong> with your request and for
+            supporting our creative journey! Your summary has been compiled and is ready below.
+          </p>
+        </div>
+
+        <div
+          style="
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 12px;
+          "
+        >
+          <span style="font-size: 0.85rem; color: var(--text-muted)"
+            >Request Visual Voucher (PNG):</span
+          >
+          <button class="btn btn-outline" style="font-size: 0.8rem" onclick="downloadReceiptPNG()">
+            💾 Download PNG
+          </button>
+        </div>
+
+        <!-- Element rendered into PNG -->
+        <div id="receiptCard">
+          <div class="receipt-header">
+            <div>
+              <h3 style="color: #ff3366; font-size: 1.1rem; text-transform: uppercase">
+                Hidden Lewd Studio
+              </h3>
+              <span style="font-size: 0.75rem; color: #888">Order Confirmation & Receipt</span>
+            </div>
+            <div style="text-align: right">
+              <div id="rcCategory" style="font-weight: 700; color: #00d2ff; font-size: 0.9rem">
+                Illustration
+              </div>
+              <div id="rcDate" style="font-size: 0.75rem; color: #aaa">Date: 2026-09-19</div>
+            </div>
+          </div>
+
+          <div class="receipt-field">
+            <strong>Supporter:</strong> <span id="rcSupporter">Name</span> (<span id="rcRank"
+              >Rank</span
+            >) - <span id="rcPlatform">Platform</span>
+          </div>
+          <div class="receipt-field" id="rcEmailRow">
+            <strong>E-mail:</strong> <span id="rcEmail">None</span>
+          </div>
+
+          <div style="margin-top: 12px; font-size: 0.85rem; color: #8e95a5">Selected Cast:</div>
+          <div class="receipt-chars" id="rcCharactersList"></div>
+
+          <div id="rcInterviewBox" style="display: none" class="receipt-field">
+            <strong>Interview Question:</strong>
+            <p
+              id="rcInterviewText"
+              style="
+                color: #ddd;
+                margin-top: 3px;
+                background: #1e212b;
+                padding: 8px;
+                border-radius: 6px;
+              "
+            ></p>
+          </div>
+
+          <div id="rcTagsBox">
+            <div class="receipt-field"><strong>Action:</strong> <span id="rcAction"></span></div>
+            <div class="receipt-field">
+              <strong>Setting/Context:</strong> <span id="rcContext"></span>
+            </div>
+            <div class="receipt-field">
+              <strong>Relation:</strong> <span id="rcRelation"></span>
+            </div>
+            <div class="receipt-field"><strong>Plot:</strong> <span id="rcPlot"></span></div>
+          </div>
+
+          <div id="rcStoryBox" style="display: none" class="receipt-field">
+            <strong>Story Briefing:</strong>
+            <p
+              id="rcStoryText"
+              style="
+                color: #ddd;
+                margin-top: 3px;
+                background: #1e212b;
+                padding: 8px;
+                border-radius: 6px;
+              "
+            ></p>
+          </div>
+
+          <div
+            class="receipt-field"
+            style="margin-top: 10px; border-top: 1px solid #222; padding-top: 8px"
+          >
+            <strong>Credited in post:</strong> <span id="rcCredit"></span> |
+            <strong>Freedom:</strong> <span id="rcFreedom"></span>
+          </div>
+        </div>
+
+        <!-- Actions to deliver to the artist -->
+        <div style="display: flex; flex-direction: column; gap: 10px">
+          <a
+            id="mailToArtistBtn"
+            href="#"
+            class="btn btn-cyan"
+            style="text-decoration: none; text-align: center"
+          >
+            ✉️ Open Email Client with Request Details
+          </a>
+          <button type="button" class="btn btn-outline" onclick="copyReceiptText()">
+            📋 Copy Request Text to Clipboard
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <script>
+      /* ==========================================================
+     ARTIST SETTINGS: Put your recipient email here
+  ========================================================== */
+      const ARTIST_EMAIL = "your_email@gmail.com"; // Replace with your receiving email
+
+      /* ==========================================================
+     DATABASE: Characters with Multi-version support
+  ========================================================== */
+      const databaseCharacters = [
+        {
+          name: "Sarada Uchiha",
+          franchise: "Boruto",
+          versions: [
+            {
+              label: "Genin",
+              image: "https://images.wikia.nocookie.net/naruto/images/4/41/Sarada_Uchiha.png",
+            },
+            {
+              label: "Academy",
+              image: "https://images.wikia.nocookie.net/naruto/images/8/87/Sarada_Academy.png",
+            },
+          ],
+        },
+        {
+          name: "Tsunade",
+          franchise: "Naruto",
+          versions: [
+            {
+              label: "Hokage",
+              image: "https://images.wikia.nocookie.net/naruto/images/e/e6/Tsunade_Infobox.png",
+            },
+          ],
+        },
+        {
+          name: "Shizune",
+          franchise: "Naruto",
+          versions: [
+            {
+              label: "Default",
+              image: "https://images.wikia.nocookie.net/naruto/images/8/89/Shizune.png",
+            },
+          ],
+        },
+        {
+          name: "Hinata Hyuga",
+          franchise: "Naruto",
+          versions: [
+            {
+              label: "Shippuden",
+              image: "https://images.wikia.nocookie.net/naruto/images/9/97/Hinata_Part_II.png",
+            },
+            {
+              label: "The Last",
+              image: "https://images.wikia.nocookie.net/naruto/images/d/df/Hinata_The_Last.png",
+            },
+          ],
+        },
+        {
+          name: "Boruto Uzumaki",
+          franchise: "Boruto",
+          versions: [
+            {
+              label: "Genin",
+              image: "https://images.wikia.nocookie.net/naruto/images/b/be/Boruto_Uzumaki.png",
+            },
+          ],
+        },
+        {
+          name: "Makima",
+          franchise: "Chainsaw Man",
+          versions: [
+            {
+              label: "Suit",
+              image:
+                "https://images.wikia.nocookie.net/chainsaw-man/images/d/d6/Makima_anime_design.png",
+            },
+          ],
+        },
+        {
+          name: "Power",
+          franchise: "Chainsaw Man",
+          versions: [
+            {
+              label: "Casual",
+              image:
+                "https://images.wikia.nocookie.net/chainsaw-man/images/0/02/Power_anime_design.png",
+            },
+          ],
+        },
+        {
+          name: "Denji",
+          franchise: "Chainsaw Man",
+          versions: [
+            {
+              label: "Default",
+              image:
+                "https://images.wikia.nocookie.net/chainsaw-man/images/3/36/Denji_anime_design.png",
+            },
+          ],
+        },
+        {
+          name: "Fubuki",
+          franchise: "One Punch Man",
+          versions: [
+            {
+              label: "Dress",
+              image: "https://images.wikia.nocookie.net/onepunchman/images/8/8e/Fubuki_Anime.png",
+            },
+          ],
+        },
+        {
+          name: "Mami Nanami",
+          franchise: "Rent-A-Girlfriend",
+          versions: [
+            {
+              label: "Default",
+              image:
+                "https://images.wikia.nocookie.net/kanojo-okarishimasu/images/f/f6/Mami_Nanami_anime.png",
+            },
+          ],
+        },
+      ];
+
+      const tagPool = {
+        actions: [
+          "Ass grab",
+          "Doggy style",
+          "Missionary position",
+          "Cowgirl",
+          "Masturbation",
+          "Torn clothes",
+          "Pinned down",
+          "Lap sitting",
+        ],
+        contexts: [
+          "On the couch",
+          "Hot spring / Onsen",
+          "School classroom",
+          "Dojo training mat",
+          "Bedroom at night",
+          "Forest clearing",
+        ],
+        relations: [
+          "Dominance / Submissive",
+          "Romantic tenderness",
+          "Caught in the act",
+          "Master and student",
+          "Friendly tease",
+        ],
+        plots: [
+          "Lost training bet",
+          "Secret late-night meeting",
+          "Unplanned encounter during mission",
+          "Pushed beyond the limit",
+        ],
+      };
+
+      // State
+      let currentSlots = [
+        { charName: "Sarada Uchiha", versionIdx: 0 },
+        { charName: "Boruto Uzumaki", versionIdx: 0 },
+        { charName: "", versionIdx: 0 },
+        { charName: "", versionIdx: 0 },
+      ];
+
+      /* ==========================================================
+     Initialization & Autocomplete
+  ========================================================== */
+      window.addEventListener("DOMContentLoaded", () => {
+        initDatalist();
+        renderSlots();
+        handleRankChange();
+      });
+
+      function initDatalist() {
+        const dl = document.getElementById("charactersList");
+        dl.innerHTML = databaseCharacters
+          .map((c) => `<option value="${c.name}">${c.franchise}</option>`)
+          .join("");
+      }
+
+      /* ==========================================================
+     Shinobi Rank & Category Logic
+  ========================================================== */
+      function handleRankChange() {
+        const rank = document.getElementById("shinobiRank").value;
+        const catSelect = document.getElementById("requestCategory");
+        catSelect.innerHTML = "";
+
+        const allowed = [];
+        if (rank === "Genin") {
+          allowed.push({ val: "Interview", label: "🎤 Interview" });
+        } else if (rank === "Chunin" || rank === "Jounin") {
+          allowed.push({ val: "Interview", label: "🎤 Interview" });
+          allowed.push({ val: "Single Illustration", label: "🖼️ Single Illustration" });
+        } else if (rank === "Anbu") {
+          allowed.push({ val: "Interview", label: "🎤 Interview" });
+          allowed.push({ val: "Single Illustration", label: "🖼️ Single Illustration" });
+          allowed.push({ val: "Image Set", label: "📰 Image Set (2-4 Images)" });
+        } else if (["Akatsuki", "Kara", "Kage"].includes(rank)) {
+          allowed.push({ val: "Interview", label: "🎤 Interview" });
+          allowed.push({ val: "Single Illustration", label: "🖼️ Single Illustration" });
+          allowed.push({ val: "Image Set", label: "📰 Image Set (2-4 Images)" });
+          allowed.push({
+            val: "Quick Story Event",
+            label: "📜 Quick Story Event (Narrative Set up to 5 pages)",
+          });
+        }
+
+        allowed.forEach((opt) => {
+          const el = document.createElement("option");
+          el.value = opt.val;
+          el.textContent = opt.label;
+          catSelect.appendChild(el);
+        });
+
+        handleCategoryChange();
+      }
+
+      function handleCategoryChange() {
+        const cat = document.getElementById("requestCategory").value;
+        const isInterview = cat === "Interview";
+        const isStory = cat === "Quick Story Event";
+
+        document.getElementById("interviewSection").style.display = isInterview ? "block" : "none";
+        document.getElementById("interviewQuestion").required = isInterview;
+
+        document.getElementById("sceneDetailsSection").style.display = isInterview
+          ? "none"
+          : "block";
+        document.getElementById("tagAction").required = !isInterview;
+        document.getElementById("tagContext").required = !isInterview;
+
+        document.getElementById("storyBriefingSection").style.display = isStory ? "block" : "none";
+        document.getElementById("storyBriefing").required = isStory;
+
+        const countSelect = document.getElementById("charCountSelect");
+        if (isInterview) {
+          countSelect.value = "1";
+          countSelect.disabled = true;
+          document.getElementById("charCounterTag").innerText = "1 Character Only for Interview";
+        } else {
+          countSelect.disabled = false;
+          document.getElementById("charCounterTag").innerText = "Up to 4 Characters";
+        }
+        renderSlots();
+      }
+
+      /* ==========================================================
+     Character Slots Rendering & Selection
+  ========================================================== */
+      function renderSlots() {
+        const count = parseInt(document.getElementById("charCountSelect").value);
+        const container = document.getElementById("slotsContainer");
+        container.innerHTML = "";
+
+        for (let i = 0; i < count; i++) {
+          const slotData = currentSlots[i];
+          const charObj = databaseCharacters.find(
+            (c) => c.name.toLowerCase() === slotData.charName.toLowerCase(),
+          );
+
+          let currentVersion = { label: "Standard", image: "" };
+          let versionButtonsHTML = "";
+          let franchiseName = charObj ? charObj.franchise : "Unknown Series";
+
+          if (charObj && charObj.versions && charObj.versions.length > 0) {
+            const vIdx = slotData.versionIdx < charObj.versions.length ? slotData.versionIdx : 0;
+            currentVersion = charObj.versions[vIdx];
+
+            if (charObj.versions.length > 1) {
+              versionButtonsHTML = charObj.versions
+                .map(
+                  (ver, idx) => `
+            <button type="button" class="ver-btn ${idx === vIdx ? "active" : ""}" 
+              title="${ver.label}" 
+              onclick="changeSlotVersion(${i}, ${idx})">${idx + 1}</button>
+          `,
+                )
+                .join("");
+            }
+          }
+
+          const avatarSrc =
+            currentVersion.image ||
+            `data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="100" height="100" viewBox="0 0 100 100"><rect fill="%23222530" width="100" height="100"/><text fill="%2300d2ff" font-family="sans-serif" font-size="28" font-weight="bold" x="50%" y="55%" dominant-baseline="middle" text-anchor="middle">${slotData.charName ? slotData.charName.charAt(0).toUpperCase() : "?"}</text></svg>`;
+
+          const card = document.createElement("div");
+          card.className = "char-card";
+          card.innerHTML = `
+        <span class="char-badge">Slot ${i + 1}</span>
+        <div class="avatar-wrapper">
+          <img src="${avatarSrc}" class="char-avatar" alt="Character" onerror="this.src='https://via.placeholder.com/100?text=No+Img'">
+          <div class="version-pills">${versionButtonsHTML}</div>
+        </div>
+        <div class="char-meta">
+          <div class="char-series-sub">${franchiseName}</div>
+          <input type="text" list="charactersList" value="${slotData.charName}" 
+                 placeholder="Type character..." 
+                 style="font-size: 0.85rem; padding: 6px 10px; text-align:center;"
+                 oninput="handleCharInput(${i}, this.value)">
+        </div>
+      `;
+          container.appendChild(card);
+        }
+      }
+
+      function handleCharInput(slotIndex, value) {
+        currentSlots[slotIndex].charName = value;
+        currentSlots[slotIndex].versionIdx = 0;
+        const match = databaseCharacters.find(
+          (c) => c.name.toLowerCase() === value.trim().toLowerCase(),
+        );
+        if (match) {
+          currentSlots[slotIndex].charName = match.name;
+          renderSlots();
+        }
+      }
+
+      function changeSlotVersion(slotIndex, versionIndex) {
+        currentSlots[slotIndex].versionIdx = versionIndex;
+        renderSlots();
+      }
+
+      /* ==========================================================
+     Randomizer Functions
+  ========================================================== */
+      function randomizeCharacters(sameFranchise = true) {
+        const count = parseInt(document.getElementById("charCountSelect").value);
+
+        if (sameFranchise) {
+          // Pick a random franchise
+          const franchises = [...new Set(databaseCharacters.map((c) => c.franchise))];
+          const pickedFranchise = franchises[Math.floor(Math.random() * franchises.length)];
+          let available = databaseCharacters.filter((c) => c.franchise === pickedFranchise);
+
+          available = available.sort(() => 0.5 - Math.random());
+          for (let i = 0; i < count; i++) {
+            if (i < available.length) {
+              currentSlots[i].charName = available[i].name;
+              currentSlots[i].versionIdx = Math.floor(Math.random() * available[i].versions.length);
+            } else {
+              // If franchise has fewer chars, pick random overall
+              const rand =
+                databaseCharacters[Math.floor(Math.random() * databaseCharacters.length)];
+              currentSlots[i].charName = rand.name;
+              currentSlots[i].versionIdx = 0;
+            }
+          }
+        } else {
+          // Crossover
+          const shuffled = [...databaseCharacters].sort(() => 0.5 - Math.random());
+          for (let i = 0; i < count; i++) {
+            const item = shuffled[i % shuffled.length];
+            currentSlots[i].charName = item.name;
+            currentSlots[i].versionIdx = Math.floor(Math.random() * item.versions.length);
+          }
+        }
+        renderSlots();
+      }
+
+      function randomizeTags() {
+        const pick = (arr) => arr[Math.floor(Math.random() * arr.length)];
+        document.getElementById("tagAction").value = pick(tagPool.actions);
+        document.getElementById("tagContext").value = pick(tagPool.contexts);
+        document.getElementById("tagRelation").value = pick(tagPool.relations);
+        document.getElementById("scenePlot").value = pick(tagPool.plots);
+      }
+
+      /* ==========================================================
+     Submit & PNG Receipt Generation
+  ========================================================== */
+      let currentGeneratedSummaryText = "";
+
+      function submitRequest() {
+        const subPlatform = document.getElementById("subPlatform").value;
+        const nickname = document.getElementById("supporterNick").value;
+        const email = document.getElementById("supporterEmail").value || "None provided";
+        const rank = document.getElementById("shinobiRank").value;
+        const category = document.getElementById("requestCategory").value;
+
+        const count = parseInt(document.getElementById("charCountSelect").value);
+        const chosenChars = [];
+
+        for (let i = 0; i < count; i++) {
+          const slot = currentSlots[i];
+          const charObj = databaseCharacters.find(
+            (c) => c.name.toLowerCase() === slot.charName.toLowerCase(),
+          );
+          let vName = "Default";
+          let vImg = "";
+          if (charObj && charObj.versions && charObj.versions[slot.versionIdx]) {
+            vName = charObj.versions[slot.versionIdx].label;
+            vImg = charObj.versions[slot.versionIdx].image;
+          }
+          chosenChars.push({
+            name: slot.charName || "Custom/Original Character",
+            franchise: charObj ? charObj.franchise : "Custom",
+            version: vName,
+            img: vImg,
+          });
+        }
+
+        // Fill Receipt Box
+        document.getElementById("rcCategory").innerText = category;
+        document.getElementById("rcDate").innerText =
+          "Date: " + new Date().toISOString().split("T")[0];
+        document.getElementById("rcSupporter").innerText = nickname;
+        document.getElementById("rcRank").innerText = rank;
+        document.getElementById("rcPlatform").innerText = subPlatform;
+        document.getElementById("rcEmail").innerText = email;
+
+        // Characters list in receipt
+        const rcList = document.getElementById("rcCharactersList");
+        rcList.innerHTML = chosenChars
+          .map(
+            (c) => `
+      <div class="receipt-char-item">
+        <img src="${c.img || "https://via.placeholder.com/40"}" onerror="this.src='https://via.placeholder.com/40'">
+        <div>
+          <div style="font-weight:700; font-size:0.8rem;">${c.name}</div>
+          <div style="font-size:0.7rem; color:#00d2ff;">${c.franchise} (${c.version})</div>
+        </div>
+      </div>
+    `,
+          )
+          .join("");
+
+        const isInterview = category === "Interview";
+        const isStory = category === "Quick Story Event";
+
+        document.getElementById("rcInterviewBox").style.display = isInterview ? "block" : "none";
+        document.getElementById("rcTagsBox").style.display = isInterview ? "none" : "block";
+        document.getElementById("rcStoryBox").style.display = isStory ? "block" : "none";
+
+        if (isInterview) {
+          document.getElementById("rcInterviewText").innerText =
+            document.getElementById("interviewQuestion").value;
+        } else {
+          document.getElementById("rcAction").innerText =
+            document.getElementById("tagAction").value;
+          document.getElementById("rcContext").innerText =
+            document.getElementById("tagContext").value;
+          document.getElementById("rcRelation").innerText =
+            document.getElementById("tagRelation").value || "None";
+          document.getElementById("rcPlot").innerText =
+            document.getElementById("scenePlot").value || "None";
+        }
+
+        if (isStory) {
+          document.getElementById("rcStoryText").innerText =
+            document.getElementById("storyBriefing").value;
+        }
+
+        document.getElementById("rcCredit").innerText =
+          document.getElementById("creditPreference").value;
+        document.getElementById("rcFreedom").innerText =
+          document.getElementById("freedomLevel").value;
+
+        // Prepare mailto link
+        let bodyText = `HIDDEN LEWD STUDIO - COMMISSION REQUEST%0D%0A%0D%0A`;
+        bodyText += `Supporter: ${nickname} (%20${rank}%20-%20${subPlatform})%0D%0A`;
+        bodyText += `Category: ${category}%0D%0A`;
+        bodyText += `Cast: ${chosenChars.map((c) => `${c.name} [${c.franchise}] (${c.version})`).join(", ")}%0D%0A%0D%0A`;
+
+        if (isInterview) {
+          bodyText += `Question: ${encodeURIComponent(document.getElementById("interviewQuestion").value)}%0D%0A`;
+        } else {
+          bodyText += `Action/Pose: ${encodeURIComponent(document.getElementById("tagAction").value)}%0D%0A`;
+          bodyText += `Setting: ${encodeURIComponent(document.getElementById("tagContext").value)}%0D%0A`;
+          bodyText += `Relation: ${encodeURIComponent(document.getElementById("tagRelation").value)}%0D%0A`;
+          bodyText += `Plot: ${encodeURIComponent(document.getElementById("scenePlot").value)}%0D%0A`;
+        }
+
+        if (isStory) {
+          bodyText += `Briefing: ${encodeURIComponent(document.getElementById("storyBriefing").value)}%0D%0A`;
+        }
+
+        currentGeneratedSummaryText = decodeURIComponent(bodyText.replace(/%0D%0A/g, "\n"));
+        document.getElementById("mailToArtistBtn").href =
+          `mailto:${ARTIST_EMAIL}?subject=${encodeURIComponent(`[Request] ${rank} -${nickname}`)}&body=${bodyText}`;
+
+        // Show Thank You modal
+        document.getElementById("thankYouModal").style.display = "flex";
+      }
+
+      function downloadReceiptPNG() {
+        const card = document.getElementById("receiptCard");
+        html2canvas(card, {
+          backgroundColor: "#111319",
+          scale: 2,
+          useCORS: true,
+        }).then((canvas) => {
+          const link = document.createElement("a");
+          link.download = `HiddenLewdStudio_Request_${document.getElementById("supporterNick").value || "Order"}.png`;
+          link.href = canvas.toDataURL("image/png");
+          link.click();
+        });
+      }
+
+      function copyReceiptText() {
+        navigator.clipboard.writeText(currentGeneratedSummaryText).then(() => {
+          alert("Request summary copied to clipboard! You can paste it into Discord or email.");
+        });
+      }
+
+      function closeModal() {
+        document.getElementById("thankYouModal").style.display = "none";
+      }
+    </script>
+  </body>
+</html>

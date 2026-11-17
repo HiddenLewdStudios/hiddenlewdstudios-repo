@@ -1,0 +1,12 @@
+---
+import RequestForm from "../components/RequestForm";
+import BaseLayout from "../layouts/BaseLayout.astro";
+---
+
+<BaseLayout title="Hidden Lewd Studio | Request Portal">
+  <header class="brand-header">
+    <h1 class="brand-title">Hidden Lewd Studio</h1>
+    <p class="brand-sub">Supporter commission and request portal</p>
+  </header>
+  <RequestForm client:load />
+</BaseLayout>
