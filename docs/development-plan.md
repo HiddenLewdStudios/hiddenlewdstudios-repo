@@ -81,4 +81,4 @@ npm run build
 ```
 
 For the configured GitHub Pages project site, open the local server at
-`http://localhost:4321/mr-chungus/`.
+`http://localhost:4321/hiddenlewdstudios-repo/`.

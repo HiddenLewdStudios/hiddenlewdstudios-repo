@@ -3,8 +3,8 @@ import react from "@astrojs/react";
 import tailwindcss from "@tailwindcss/vite";
 
 export default defineConfig({
-  site: "https://HiddenLewdStudios.github.io",
-  base: "/mr-chungus",
+  site: "https://hiddenlewdstudios.github.io",
+  base: "/hiddenlewdstudios-repo",
   output: "static",
   integrations: [react()],
   vite: {
