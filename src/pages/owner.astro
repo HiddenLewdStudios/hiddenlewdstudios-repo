@@ -1,0 +1,12 @@
+---
+import OwnerDashboard from "../components/OwnerDashboard";
+import BaseLayout from "../layouts/BaseLayout.astro";
+---
+
+<BaseLayout title="Owner workspace | Hidden Lewd Studio">
+  <header class="brand-header">
+    <h1 class="brand-title">Hidden Lewd Studio</h1>
+    <p class="brand-sub">Owner workspace</p>
+  </header>
+  <OwnerDashboard client:load />
+</BaseLayout>

@@ -1,11 +1,14 @@
-import { type SyntheticEvent, useMemo, useState } from "react";
+import { type SyntheticEvent, useEffect, useMemo, useState } from "react";
+import type { User } from "@supabase/supabase-js";
 import { characters, tagPool, type Character } from "../data/characters";
+import { isSupabaseConfigured, setSessionPersistence, supabase } from "../lib/supabase";
 
 type RequestCategory = "" | "Interview" | "Single Illustration" | "Image Set" | "Quick Story Event";
 type Tier = "" | "Genin" | "Chunin" | "Jounin" | "Anbu" | "Akatsuki" | "Kara" | "Kage";
 type SelectedTier = Exclude<Tier, "">;
 type SelectedCategory = Exclude<RequestCategory, "">;
 type CharacterSlot = { name: string; versionIndex: number };
+type AuthMode = "signIn" | "signUp" | "forgotPassword" | "resetPassword" | "magicLink";
 
 type FormState = {
   platform: string;
@@ -75,6 +78,25 @@ const baseUrl = import.meta.env.BASE_URL.endsWith("/")
   ? import.meta.env.BASE_URL
   : `${import.meta.env.BASE_URL}/`;
 
+const allowedReferenceTypes = new Set(["image/jpeg", "image/png", "image/webp"]);
+const maxReferenceFileSize = 10 * 1024 * 1024;
+const maxReferenceFiles = 5;
+
+function storageObjectId(): string {
+  if (typeof crypto.randomUUID === "function") return crypto.randomUUID();
+
+  const bytes = new Uint8Array(16);
+  if (typeof crypto.getRandomValues === "function") {
+    crypto.getRandomValues(bytes);
+    bytes[6] = (bytes[6] & 0x0f) | 0x40;
+    bytes[8] = (bytes[8] & 0x3f) | 0x80;
+    const hex = Array.from(bytes, (byte) => byte.toString(16).padStart(2, "0")).join("");
+    return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`;
+  }
+
+  return `${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`;
+}
+
 function characterFor(name: string): Character | undefined {
   return characters.find(
     (character) => character.name.toLocaleLowerCase() === name.trim().toLocaleLowerCase(),
@@ -132,6 +154,21 @@ export default function RequestForm() {
   const [modalState, setModalState] = useState<"review" | "confirmed" | null>(null);
   const [copyMessage, setCopyMessage] = useState("");
   const [castMessage, setCastMessage] = useState("");
+  const [user, setUser] = useState<User | null>(null);
+  const [authMessage, setAuthMessage] = useState("");
+  const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
+  const [authMode, setAuthMode] = useState<AuthMode>("signIn");
+  const [authEmail, setAuthEmail] = useState("");
+  const [authPassword, setAuthPassword] = useState("");
+  const [staySignedIn, setStaySignedIn] = useState(true);
+  const [authModalMessage, setAuthModalMessage] = useState("");
+  const [isAuthenticating, setIsAuthenticating] = useState(false);
+  const [referenceFiles, setReferenceFiles] = useState<File[]>([]);
+  const [referenceMessage, setReferenceMessage] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [submittedRequestNumber, setSubmittedRequestNumber] = useState("");
+  const [submissionError, setSubmissionError] = useState("");
+  const [notificationMessage, setNotificationMessage] = useState("");
 
   const isInterview = form.category === "Interview";
   const isStory = form.category === "Quick Story Event";
@@ -141,6 +178,42 @@ export default function RequestForm() {
     () => selectedSlots.map((slot) => ({ slot, character: characterFor(slot.name) })),
     [selectedSlots],
   );
+
+  useEffect(() => {
+    if (!supabase) return;
+    const client = supabase;
+
+    async function loadAccountDetails(nextUser: User | null) {
+      setUser(nextUser);
+      if (!nextUser) return;
+      const { data: profile } = await client
+        .from("profiles")
+        .select("last_supporter_nickname, last_supporter_platform, last_shinobi_registration")
+        .eq("id", nextUser.id)
+        .maybeSingle();
+      setForm((current) => ({
+        ...current,
+        email: nextUser.email ?? current.email,
+        nickname: profile?.last_supporter_nickname || current.nickname,
+        platform: profile?.last_supporter_platform || current.platform,
+        tier: (profile?.last_shinobi_registration as Tier) || current.tier,
+      }));
+    }
+
+    void client.auth.getUser().then(({ data }) => loadAccountDetails(data.user));
+    const {
+      data: { subscription },
+    } = client.auth.onAuthStateChange((event, session) => {
+      void loadAccountDetails(session?.user ?? null);
+      if (event === "PASSWORD_RECOVERY") {
+        setAuthMode("resetPassword");
+        setAuthModalMessage("Choose a new password for your account.");
+        setIsAuthModalOpen(true);
+      }
+    });
+
+    return () => subscription.unsubscribe();
+  }, []);
 
   function update<K extends keyof FormState>(key: K, value: FormState[K]) {
     setForm((current) => ({ ...current, [key]: value }));
@@ -228,6 +301,261 @@ export default function RequestForm() {
     }));
   }
 
+  function openAuthModal(mode: AuthMode = "signIn") {
+    setAuthMode(mode);
+    setAuthEmail(form.email);
+    setAuthPassword("");
+    setAuthModalMessage("");
+    setIsAuthModalOpen(true);
+  }
+
+  function authRedirectUrl() {
+    return new URL(baseUrl, window.location.origin).toString();
+  }
+
+  async function sendMagicLink() {
+    if (!supabase || !isSupabaseConfigured) {
+      setAuthModalMessage("Authentication is not configured yet. Please try again later.");
+      return;
+    }
+    if (!authEmail.trim()) {
+      setAuthModalMessage("Enter your email address first.");
+      return;
+    }
+
+    setIsAuthenticating(true);
+    const { error } = await supabase.auth.signInWithOtp({
+      email: authEmail.trim(),
+      options: {
+        emailRedirectTo: authRedirectUrl(),
+      },
+    });
+    setIsAuthenticating(false);
+    setAuthModalMessage(error ? error.message : "Check your email for a secure sign-in link.");
+  }
+
+  async function submitPasswordAuth(event: SyntheticEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!supabase || !isSupabaseConfigured) {
+      setAuthModalMessage("Authentication is not configured yet. Please try again later.");
+      return;
+    }
+    if (!authEmail.trim() || !authPassword) {
+      setAuthModalMessage("Enter both an email address and password.");
+      return;
+    }
+
+    setSessionPersistence(staySignedIn);
+    setIsAuthenticating(true);
+    const result =
+      authMode === "signUp"
+        ? await supabase.auth.signUp({
+            email: authEmail.trim(),
+            password: authPassword,
+            options: { emailRedirectTo: authRedirectUrl() },
+          })
+        : await supabase.auth.signInWithPassword({
+            email: authEmail.trim(),
+            password: authPassword,
+          });
+    setIsAuthenticating(false);
+
+    if (result.error) {
+      setAuthModalMessage(result.error.message);
+      return;
+    }
+    if (authMode === "signUp" && !result.data.session) {
+      setAuthModalMessage(
+        "Your password account was created. Confirm it through the account-activation email, then sign in with your password.",
+      );
+      return;
+    }
+    setForm((current) => ({ ...current, email: authEmail.trim() }));
+    setAuthMessage("Signed in.");
+    setIsAuthModalOpen(false);
+  }
+
+  async function requestPasswordReset() {
+    if (!supabase || !authEmail.trim()) {
+      setAuthModalMessage("Enter your account email address first.");
+      return;
+    }
+    setIsAuthenticating(true);
+    const { error } = await supabase.auth.resetPasswordForEmail(authEmail.trim(), {
+      redirectTo: authRedirectUrl(),
+    });
+    setIsAuthenticating(false);
+    setAuthModalMessage(error ? error.message : "Check your email for a password-reset link.");
+  }
+
+  async function setNewPassword(event: SyntheticEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!supabase || !authPassword) {
+      setAuthModalMessage("Enter a new password.");
+      return;
+    }
+    setIsAuthenticating(true);
+    const { error } = await supabase.auth.updateUser({ password: authPassword });
+    setIsAuthenticating(false);
+    if (error) {
+      setAuthModalMessage(error.message);
+      return;
+    }
+    setAuthMessage("Your password has been updated.");
+    setIsAuthModalOpen(false);
+  }
+
+  async function signInWithProvider(provider: "google" | "discord") {
+    if (!supabase) return;
+    setSessionPersistence(staySignedIn);
+    setIsAuthenticating(true);
+    const { error } = await supabase.auth.signInWithOAuth({
+      provider,
+      options: { redirectTo: authRedirectUrl() },
+    });
+    setIsAuthenticating(false);
+    if (error) setAuthModalMessage(error.message);
+  }
+
+  async function signOut() {
+    if (!supabase) return;
+    await supabase.auth.signOut();
+    setAuthMessage("Signed out.");
+  }
+
+  function showAuthenticationMessage(message: string) {
+    setAuthMessage(message);
+    window.requestAnimationFrame(() => {
+      document.getElementById("account-section")?.focus();
+      document
+        .getElementById("account-section")
+        ?.scrollIntoView({ behavior: "smooth", block: "center" });
+    });
+  }
+
+  function updateReferenceFiles(files: FileList | null) {
+    const selected = Array.from(files ?? []);
+    if (selected.length > maxReferenceFiles) {
+      setReferenceMessage(`Choose up to ${maxReferenceFiles} reference images.`);
+      return;
+    }
+    const invalidFile = selected.find(
+      (file) => !allowedReferenceTypes.has(file.type) || file.size > maxReferenceFileSize,
+    );
+    if (invalidFile) {
+      setReferenceMessage("References must be JPG, PNG, or WebP images no larger than 10 MB.");
+      return;
+    }
+    setReferenceFiles(selected);
+    setReferenceMessage(
+      selected.length ? `${selected.length} reference image(s) ready to upload.` : "",
+    );
+  }
+
+  async function confirmRequest() {
+    if (!supabase || !isSupabaseConfigured) {
+      setSubmissionError(
+        "Submission is not configured yet. Check the Supabase public environment values.",
+      );
+      return;
+    }
+    if (!user) {
+      setSubmissionError(
+        "Your session has expired. Sign in from your email, then review the request again.",
+      );
+      return;
+    }
+
+    setIsSubmitting(true);
+    setSubmissionError("");
+    try {
+      const { error: profileError } = await supabase.from("profiles").upsert({
+        id: user.id,
+        display_name: form.nickname.trim(),
+        last_supporter_nickname: form.nickname.trim(),
+        last_supporter_platform: form.platform,
+        last_shinobi_registration: form.tier,
+      });
+      if (profileError) throw profileError;
+
+      const { data: request, error: requestError } = await supabase
+        .from("requests")
+        .insert({
+          user_id: user.id,
+          supporter_platform: form.platform,
+          supporter_nickname: form.nickname.trim(),
+          contact_email: user.email ?? form.email.trim(),
+          tier: form.tier,
+          category: form.category,
+          interview_question: isInterview ? form.interviewQuestion.trim() : null,
+          action: isInterview ? null : form.action.trim(),
+          context: isInterview ? null : form.context.trim(),
+          relation: isInterview ? null : form.relation.trim() || null,
+          plot: isInterview ? null : form.plot.trim() || null,
+          story_briefing: isStory ? form.storyBriefing.trim() : null,
+          credit_preference: form.credit,
+          creative_freedom: form.freedom,
+        })
+        .select("id, request_number")
+        .single();
+      if (requestError) throw requestError;
+
+      const charactersToSave = selectedCharacters.map(({ slot, character }, index) => ({
+        request_id: request.id,
+        position: index + 1,
+        character_name: slot.name.trim() || "Original character",
+        franchise: character?.franchise ?? null,
+        version_label: character?.versions[slot.versionIndex]?.label ?? "Custom",
+      }));
+      const { error: characterError } = await supabase
+        .from("request_characters")
+        .insert(charactersToSave);
+      if (characterError) throw characterError;
+
+      for (const file of referenceFiles) {
+        const extension = file.name.split(".").pop()?.toLowerCase() || "image";
+        const storagePath = `${user.id}/${request.id}/${storageObjectId()}.${extension}`;
+        const { error: uploadError } = await supabase.storage
+          .from("request-references")
+          .upload(storagePath, file, { contentType: file.type, upsert: false });
+        if (uploadError) throw uploadError;
+
+        const { error: referenceError } = await supabase.from("request_references").insert({
+          request_id: request.id,
+          storage_path: storagePath,
+          original_filename: file.name,
+          mime_type: file.type,
+          byte_size: file.size,
+        });
+        if (referenceError) {
+          await supabase.storage.from("request-references").remove([storagePath]);
+          throw referenceError;
+        }
+      }
+
+      setSubmittedRequestNumber(request.request_number);
+      setNotificationMessage("");
+      const { error: notificationError } = await supabase.functions.invoke(
+        "send-request-notifications",
+        { body: { requestId: request.id } },
+      );
+      if (notificationError) {
+        setNotificationMessage(
+          "Your request was created, but confirmation emails could not be sent yet. The studio has the saved request.",
+        );
+      }
+      setModalState("confirmed");
+    } catch (error) {
+      setSubmissionError(
+        error instanceof Error
+          ? `Could not submit the request: ${error.message}`
+          : "Could not submit the request. Please try again.",
+      );
+    } finally {
+      setIsSubmitting(false);
+    }
+  }
+
   function summaryText() {
     const cast = selectedCharacters
       .map(({ slot, character }) => {
@@ -258,11 +586,18 @@ export default function RequestForm() {
 
   function submit(event: SyntheticEvent<HTMLFormElement>) {
     event.preventDefault();
+    if (!supabase || !isSupabaseConfigured) {
+      showAuthenticationMessage("Submission is not configured yet. Please try again later.");
+      return;
+    }
+    if (!user) {
+      showAuthenticationMessage(
+        "Sign in from your email before reviewing and submitting this request.",
+      );
+      return;
+    }
+    setSubmissionError("");
     setModalState("review");
-  }
-
-  function confirmRequest() {
-    setModalState("confirmed");
   }
 
   function copyWithFallback(text: string): boolean {
@@ -368,7 +703,11 @@ export default function RequestForm() {
     context.fillText("HIDDEN LEWD STUDIO", 48, 80);
     context.fillStyle = "#f0f2f7";
     context.font = "26px system-ui, sans-serif";
-    context.fillText("Order receipt", 48, 122);
+    context.fillText(
+      `Order receipt${submittedRequestNumber ? ` #${submittedRequestNumber}` : ""}`,
+      48,
+      122,
+    );
 
     context.font = "28px system-ui, sans-serif";
     context.fillStyle = "#f0f2f7";
@@ -400,6 +739,214 @@ export default function RequestForm() {
 
   return (
     <>
+      <section
+        className="section-card"
+        id="account-section"
+        aria-labelledby="account-heading"
+        tabIndex={-1}
+      >
+        <h2 className="section-header" id="account-heading">
+          🔐 Account <span className="tag">Required to submit</span>
+        </h2>
+        {user ? (
+          <div className="tools-bar">
+            <span className="field-hint">Signed in as {user.email}</span>
+            <div className="actions">
+              <a className="btn btn-outline" href={`${baseUrl}requests/`}>
+                My requests
+              </a>
+              <button className="btn btn-outline" type="button" onClick={signOut}>
+                Sign out
+              </button>
+            </div>
+          </div>
+        ) : (
+          <>
+            <p className="field-hint">Sign in or create an account before submitting a request.</p>
+            <button className="btn btn-cyan" type="button" onClick={() => openAuthModal()}>
+              Sign in or create account
+            </button>
+          </>
+        )}
+        {authMessage && (
+          <p className="field-hint" role="status">
+            {authMessage}
+          </p>
+        )}
+      </section>
+      {isAuthModalOpen && (
+        <div
+          className="modal-backdrop"
+          role="presentation"
+          onMouseDown={() => setIsAuthModalOpen(false)}
+        >
+          <section
+            className="modal auth-modal"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="auth-modal-title"
+            onMouseDown={(event) => event.stopPropagation()}
+          >
+            <button
+              className="modal-close"
+              type="button"
+              aria-label="Close account dialog"
+              onClick={() => setIsAuthModalOpen(false)}
+            >
+              ×
+            </button>
+            <h2 id="auth-modal-title">
+              {authMode === "signIn" && "Sign in"}
+              {authMode === "signUp" && "Create your account"}
+              {authMode === "forgotPassword" && "Reset your password"}
+              {authMode === "resetPassword" && "Choose a new password"}
+              {authMode === "magicLink" && "Email sign-in link"}
+            </h2>
+            {authMode === "forgotPassword" ? (
+              <div className="auth-form">
+                <p className="field-hint">We’ll email you a secure link to reset your password.</p>
+                <label htmlFor="auth-email">Email address</label>
+                <input
+                  id="auth-email"
+                  type="email"
+                  autoComplete="email"
+                  value={authEmail}
+                  onChange={(event) => setAuthEmail(event.target.value)}
+                  required
+                />
+                <button
+                  className="btn btn-pink"
+                  type="button"
+                  onClick={requestPasswordReset}
+                  disabled={isAuthenticating}
+                >
+                  {isAuthenticating ? "Sending…" : "Email password-reset link"}
+                </button>
+              </div>
+            ) : authMode === "magicLink" ? (
+              <div className="auth-form">
+                <p className="field-hint">We’ll email you a secure, one-time sign-in link.</p>
+                <label htmlFor="auth-email">Email address</label>
+                <input
+                  id="auth-email"
+                  type="email"
+                  autoComplete="email"
+                  value={authEmail}
+                  onChange={(event) => setAuthEmail(event.target.value)}
+                  required
+                />
+                <button
+                  className="btn btn-pink"
+                  type="button"
+                  onClick={sendMagicLink}
+                  disabled={isAuthenticating}
+                >
+                  {isAuthenticating ? "Sending…" : "Email me a sign-in link"}
+                </button>
+              </div>
+            ) : (
+              <form
+                className="auth-form"
+                onSubmit={authMode === "resetPassword" ? setNewPassword : submitPasswordAuth}
+              >
+                {authMode !== "resetPassword" && (
+                  <>
+                    <label htmlFor="auth-email">Email address</label>
+                    <input
+                      id="auth-email"
+                      type="email"
+                      autoComplete="email"
+                      value={authEmail}
+                      onChange={(event) => setAuthEmail(event.target.value)}
+                      required
+                    />
+                  </>
+                )}
+                <label htmlFor="auth-password">
+                  {authMode === "resetPassword" ? "New password" : "Password"}
+                </label>
+                <input
+                  id="auth-password"
+                  type="password"
+                  autoComplete={authMode === "signUp" ? "new-password" : "current-password"}
+                  value={authPassword}
+                  onChange={(event) => setAuthPassword(event.target.value)}
+                  minLength={6}
+                  required
+                />
+                {authMode !== "resetPassword" && (
+                  <label className="check-label auth-stay-signed-in">
+                    <input
+                      type="checkbox"
+                      checked={staySignedIn}
+                      onChange={(event) => setStaySignedIn(event.target.checked)}
+                    />
+                    Stay signed in on this device
+                  </label>
+                )}
+                <button className="btn btn-pink" type="submit" disabled={isAuthenticating}>
+                  {isAuthenticating
+                    ? "Please wait…"
+                    : authMode === "signUp"
+                      ? "Create account"
+                      : authMode === "resetPassword"
+                        ? "Save new password"
+                        : "Sign in"}
+                </button>
+              </form>
+            )}
+            {authMode !== "resetPassword" && (
+              <>
+                <div className="auth-alternatives" aria-label="Alternative sign-in methods">
+                  <button
+                    className="btn btn-outline"
+                    type="button"
+                    onClick={() => signInWithProvider("google")}
+                    disabled={isAuthenticating}
+                  >
+                    Continue with Google
+                  </button>
+                  <button
+                    className="btn btn-outline"
+                    type="button"
+                    onClick={() => signInWithProvider("discord")}
+                    disabled={isAuthenticating}
+                  >
+                    Continue with Discord
+                  </button>
+                </div>
+                <div className="auth-links">
+                  {authMode !== "signIn" && (
+                    <button type="button" onClick={() => openAuthModal("signIn")}>
+                      Sign in with password
+                    </button>
+                  )}
+                  {authMode !== "signUp" && (
+                    <button type="button" onClick={() => openAuthModal("signUp")}>
+                      Create account
+                    </button>
+                  )}
+                  {authMode !== "forgotPassword" && (
+                    <button type="button" onClick={() => openAuthModal("forgotPassword")}>
+                      Forgot password?
+                    </button>
+                  )}
+                  {authMode !== "magicLink" && (
+                    <button type="button" onClick={() => openAuthModal("magicLink")}>
+                      Use an email sign-in link
+                    </button>
+                  )}
+                </div>
+              </>
+            )}
+            {authModalMessage && (
+              <p className="field-hint" role="status">
+                {authModalMessage}
+              </p>
+            )}
+          </section>
+        </div>
+      )}
       <form onSubmit={submit}>
         <section className="section-card" aria-labelledby="identification-heading">
           <h2 className="section-header" id="identification-heading">
@@ -446,9 +993,13 @@ export default function RequestForm() {
                 required
                 value={form.email}
                 onChange={(event) => update("email", event.target.value)}
+                readOnly={Boolean(user?.email)}
                 placeholder="you@example.com"
                 maxLength={254}
               />
+              {user?.email && (
+                <p className="field-hint">Notifications are sent to your verified account email.</p>
+              )}
             </div>
           </div>
           <div className="grid-2">
@@ -689,10 +1240,25 @@ export default function RequestForm() {
           <h2 className="section-header" id="direction-heading">
             🎨 Artistic direction
           </h2>
-          <p className="field-hint">
-            Reference uploads are intentionally unavailable in this test build. Phase 2 will provide
-            private, scanned uploads instead of untrusted external links.
-          </p>
+          <div className="form-group">
+            <label htmlFor="reference-files">Private reference images</label>
+            <input
+              id="reference-files"
+              type="file"
+              accept="image/jpeg,image/png,image/webp"
+              multiple
+              onChange={(event) => updateReferenceFiles(event.target.files)}
+            />
+            <p className="field-hint">
+              Up to {maxReferenceFiles} JPG, PNG, or WebP images, 10 MB each. Files are stored in a
+              private bucket and are never exposed by a public URL.
+            </p>
+            {referenceMessage && (
+              <p className="field-hint" role="status">
+                {referenceMessage}
+              </p>
+            )}
+          </div>
           <div className="grid-2">
             <div className="form-group">
               <label htmlFor="credit">Final post credit</label>
@@ -751,10 +1317,10 @@ export default function RequestForm() {
 
         <div className="submit-area">
           <button className="btn btn-pink btn-large" type="submit">
-            Create demo request summary
+            Review request
           </button>
           <p className="field-hint">
-            This test build does not send, store, or charge for requests.
+            Your request is saved only after you confirm the review screen while signed in.
           </p>
         </div>
       </form>
@@ -785,16 +1351,26 @@ export default function RequestForm() {
               ) : (
                 <>
                   <h2 id="receipt-title">Thank you for your support!</h2>
-                  <p>Your request has been created. Keep this summary for your records.</p>
+                  <p>
+                    Your request {submittedRequestNumber ? `${submittedRequestNumber} ` : ""}has
+                    been created. Keep this summary for your records.
+                  </p>
                 </>
               )}
             </div>
+            {modalState === "confirmed" && notificationMessage && (
+              <p className="field-hint" role="status">
+                {notificationMessage}
+              </p>
+            )}
             <div className="receipt-card" id="request-receipt">
               <header className="receipt-head">
                 <div>
                   <h3>Hidden Lewd Studio</h3>
                   <p>
-                    {modalState === "review" ? "Order confirmation and receipt" : "Order receipt"}
+                    {modalState === "review"
+                      ? "Order confirmation and receipt"
+                      : `Order receipt${submittedRequestNumber ? ` #${submittedRequestNumber}` : ""}`}
                   </p>
                 </div>
                 <strong>{form.category}</strong>
@@ -850,10 +1426,20 @@ export default function RequestForm() {
                 <strong>Creative freedom:</strong> {form.freedom}
               </div>
             </div>
+            {modalState === "review" && submissionError && (
+              <p className="error" role="alert">
+                {submissionError}
+              </p>
+            )}
             {modalState === "review" ? (
               <div className="modal-actions">
-                <button className="btn btn-pink" type="button" onClick={confirmRequest}>
-                  Confirm request details
+                <button
+                  className="btn btn-pink"
+                  type="button"
+                  onClick={confirmRequest}
+                  disabled={isSubmitting}
+                >
+                  {isSubmitting ? "Submitting…" : "Confirm request details"}
                 </button>
                 <button
                   className="btn btn-outline"

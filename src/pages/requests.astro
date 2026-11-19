@@ -1,0 +1,12 @@
+---
+import RequestHistory from "../components/RequestHistory";
+import BaseLayout from "../layouts/BaseLayout.astro";
+---
+
+<BaseLayout title="My requests | Hidden Lewd Studio">
+  <header class="brand-header">
+    <h1 class="brand-title">Hidden Lewd Studio</h1>
+    <p class="brand-sub">Your request history</p>
+  </header>
+  <RequestHistory client:load />
+</BaseLayout>

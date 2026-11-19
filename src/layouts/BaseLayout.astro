@@ -1,5 +1,6 @@
 ---
 import "../styles/global.css";
+import OwnerNavigation from "../components/OwnerNavigation";
 
 interface Props {
   title: string;
@@ -30,6 +31,8 @@ const baseUrl = import.meta.env.BASE_URL.endsWith("/")
     </main>
     <footer class="site-footer">
       <nav aria-label="Legal and help links">
+        <a href={`${baseUrl}requests/`}>My requests</a>
+        <OwnerNavigation client:load />
         <a href={`${baseUrl}terms/`}>Terms</a>
         <a href={`${baseUrl}privacy/`}>Privacy</a>
         <a href={`${baseUrl}commission-policy/`}>Commission policy</a>
