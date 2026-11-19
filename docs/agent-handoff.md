@@ -2,8 +2,8 @@
 
 ## Current milestone
 
-Phases 1 and 2 are complete. Phase 3 is active. Sprints 3.1–3.5 are complete; the next task is
-operational controls such as due dates, priority, pagination, export, and regression coverage.
+Phases 1 and 2 are complete. Phase 3 is active. Sprints 3.1–3.7 are complete; the remaining
+Phase 3 scope is the owner-only email-template workflow and its operational regression checklist.
 
 ## Completed product work
 
@@ -31,24 +31,20 @@ operational controls such as due dates, priority, pagination, export, and regres
 - `20261118134401_request_notification_deliveries.sql`
 - `20261118164530_remember_profile_request_details.sql`
 - `20261119175904_backfill_profile_request_details.sql`
+- `20261119180911_phase3_owner_authorization.sql`
+- `20261119221851_phase3_request_communications.sql`
+- `20261119224234_phase3_owner_status_transitions.sql`
+- `20261119232152_phase3_request_planning.sql`
 
-The latest two add and backfill `profiles.last_supporter_nickname`,
+The latest five Phase 3 migrations are deployed to the hosted project. The earlier profile migrations add and backfill `profiles.last_supporter_nickname`,
 `profiles.last_supporter_platform`, and `profiles.last_shinobi_registration`. They have been
 applied to both local and hosted Supabase.
 
-## Pending hosted database deployment
+## Required hosted Dashboard configuration
 
-- `20261119180911_phase3_owner_authorization.sql` has been verified locally but still needs to be
-  applied to the hosted project through the normal migration deployment process. After it is
-  applied, assign the intended owner account using the Dashboard SQL in
-  [Owner authorization](./owner-authorization.md). The owner must then sign out and back in (or
-  refresh their token) before the role becomes active.
-- `20261119221851_phase3_request_communications.sql` has been applied only to the local stack and
-  likewise needs the normal hosted migration deployment before customer updates or internal notes
-  are used in production. It requires no additional Dashboard configuration.
-- `20261119224234_phase3_owner_status_transitions.sql` has been applied only to the local stack and
-  requires the normal hosted migration deployment before owner status controls are used in
-  production. It requires no additional Dashboard configuration.
+Assign the intended production owner account with the SQL in
+[Owner authorization](./owner-authorization.md), then sign out and back in (or refresh the
+token). No production account was promoted automatically.
 
 ## Local development
 
@@ -80,9 +76,9 @@ local only and is removed by a local reset.
 
 ## Next implementation boundary
 
-Add operational controls in narrow, separately authorized increments: due dates and priority first,
-then pagination/export and a browser regression checklist. Keep private files private, retain
-immutable status history, and do not weaken customer isolation.
+Build the owner-only email-template editor, preview, safe test-send path, version history, and
+restore-default controls. Keep private files private, retain immutable status history, and do not
+weaken customer isolation.
 
 ## Sprint 3.2 — owner authorization and owner-only policies — Complete
 
@@ -139,6 +135,19 @@ immutable status history, and do not weaken customer isolation.
   client request is manipulated.
 - The status pgTAP suite proves customer and `user_metadata` denial, valid owner changes, history
   attribution, invalid-transition rejection, and rejection of non-status request updates.
+
+## Sprint 3.6 — request planning — Complete
+
+- Owners can set a due date and low/normal/high/urgent priority for each request. Planning rows are
+  owner-only through RLS and are not returned to customers.
+- Each planning change records its authenticated owner and update time. The planning pgTAP suite
+  proves owner access and customer denial.
+
+## Sprint 3.7 — owner pagination and export — Complete
+
+- The owner list paginates client-side at 20 filtered requests per page and exposes a filtered CSV
+  export for operational fields only. The export excludes reference object paths and signed URLs.
+- The hosted Phase 3 migration set is deployed, and the security advisor reports no findings.
 
 ## Deferred item
 

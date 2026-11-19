@@ -177,6 +177,16 @@ variables, and the test workflow. This stack is separate from the hosted Supabas
 - `/owner/` renders only permitted next statuses; the database remains the source of truth for
   authorization and transition validation.
 
+### Sprint 3.6 and 3.7 implementation status
+
+- Owners can set due dates and a constrained priority on owner-only planning rows. Customers cannot
+  read planning data through the API.
+- The owner request list is paginated at 20 filtered rows per page and can export its current
+  filtered result as CSV. Exports contain no private Storage paths or signed URLs.
+- The Phase 3 authorization, communications, status-transition, and planning migrations are
+  deployed to the hosted project. The remaining manual task is assigning the intended production
+  owner role as documented in [Owner authorization](./owner-authorization.md).
+
 ### Phase 3 delivery sequence
 
 1. **Customer history:** add an authenticated `/requests` page that shows only the signed-in
@@ -184,10 +194,9 @@ variables, and the test workflow. This stack is separate from the hosted Supabas
    private reference-file metadata.
 2. **Owner authorization:** establish a server-managed owner role (never editable user metadata),
    then add owner-only access policies and navigation.
-3. **Owner dashboard:** the completed read-only list/detail view and separate customer-update and
-   staff-note streams, plus server-enforced status updates and audit records, are the base. Next,
-   add due dates, priority, pagination, export, and operational regression coverage in narrow
-   increments.
+3. **Owner dashboard:** the completed list/detail view, separate customer-update and staff-note
+   streams, server-enforced status updates, planning controls, pagination, and constrained export
+   are the base. Next, add the email-template workflow and operational regression coverage.
 4. **Customer updates:** surface status history and approved customer-facing messages in the
    customer page; keep internal notes private.
 5. **Operational controls:** add export, pagination, empty/error states, and a regression/security

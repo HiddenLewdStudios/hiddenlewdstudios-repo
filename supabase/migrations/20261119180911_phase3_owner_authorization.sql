@@ -5,7 +5,8 @@
 -- These policies are intentionally read-only. Owner request management, status
 -- changes, customer-facing updates, and staff notes are separate future work.
 
-drop policy "Users can view their own requests" on public.requests;
+drop policy if exists "Users can view their own requests" on public.requests;
+drop policy if exists "Users can view their requests" on public.requests;
 create policy "Customers and owners can view requests"
 on public.requests for select to authenticated
 using (
@@ -13,7 +14,8 @@ using (
   or ((select auth.jwt()) -> 'app_metadata' ->> 'role') = 'owner'
 );
 
-drop policy "Users can view characters for their own requests" on public.request_characters;
+drop policy if exists "Users can view characters for their own requests" on public.request_characters;
+drop policy if exists "Users can view their request characters" on public.request_characters;
 create policy "Customers and owners can view request characters"
 on public.request_characters for select to authenticated
 using (
@@ -28,7 +30,8 @@ using (
   )
 );
 
-drop policy "Users can view references for their own requests" on public.request_references;
+drop policy if exists "Users can view references for their own requests" on public.request_references;
+drop policy if exists "Users can view their reference metadata" on public.request_references;
 create policy "Customers and owners can view request references"
 on public.request_references for select to authenticated
 using (
@@ -43,7 +46,8 @@ using (
   )
 );
 
-drop policy "Users can view status history for their own requests" on public.request_status_history;
+drop policy if exists "Users can view status history for their own requests" on public.request_status_history;
+drop policy if exists "Users can view their request status history" on public.request_status_history;
 create policy "Customers and owners can view request status history"
 on public.request_status_history for select to authenticated
 using (
@@ -61,7 +65,7 @@ using (
 -- The bucket remains private. This policy only permits an authenticated owner to
 -- read existing request-reference objects; it does not make objects public or
 -- grant owner write/delete access.
-drop policy "Users can read their own request reference files" on storage.objects;
+drop policy if exists "Users can read their own request reference files" on storage.objects;
 create policy "Customers and owners can read request reference files"
 on storage.objects for select to authenticated
 using (
