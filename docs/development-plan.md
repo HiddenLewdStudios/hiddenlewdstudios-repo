@@ -107,7 +107,7 @@ The repository includes a local Supabase configuration for Mailpit-based Auth em
 [Local Supabase email-flow testing](./local-supabase-email-testing.md) for setup, local environment
 variables, and the test workflow. This stack is separate from the hosted Supabase project.
 
-## Phase 3 — Dashboards
+## Phase 3 — Dashboards — Complete
 
 - Customer request history, status, messages, and secure delivered-file access.
 - Owner request list, filters, status changes with notes, due dates, priority, export, and audit
@@ -187,6 +187,16 @@ variables, and the test workflow. This stack is separate from the hosted Supabas
   deployed to the hosted project. The remaining manual task is assigning the intended production
   owner role as documented in [Owner authorization](./owner-authorization.md).
 
+### Sprint 3.8 implementation status
+
+- Owners can manage the customer-confirmation and owner-alert templates through immutable versions,
+  live sandboxed previews, placeholder validation, and active/default version controls.
+- The notification Edge Function renders the active server-side version and escapes placeholder
+  values. Test delivery can target only the authenticated owner's verified address, never an
+  arbitrary recipient.
+- Email-template data has owner-only RLS, no public Storage access, and no browser-side
+  credentials. The Phase 3 database regression suite has 38 passing assertions.
+
 ### Phase 3 delivery sequence
 
 1. **Customer history:** add an authenticated `/requests` page that shows only the signed-in
@@ -194,9 +204,9 @@ variables, and the test workflow. This stack is separate from the hosted Supabas
    private reference-file metadata.
 2. **Owner authorization:** establish a server-managed owner role (never editable user metadata),
    then add owner-only access policies and navigation.
-3. **Owner dashboard:** the completed list/detail view, separate customer-update and staff-note
-   streams, server-enforced status updates, planning controls, pagination, and constrained export
-   are the base. Next, add the email-template workflow and operational regression coverage.
+3. **Owner dashboard:** complete list/detail view, separate customer-update and staff-note
+   streams, server-enforced status updates, planning controls, pagination, constrained export, and
+   email-template workflow.
 4. **Customer updates:** surface status history and approved customer-facing messages in the
    customer page; keep internal notes private.
 5. **Operational controls:** add export, pagination, empty/error states, and a regression/security

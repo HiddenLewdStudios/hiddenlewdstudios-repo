@@ -22,6 +22,9 @@ type Delivery = {
   attempt_count: number;
 };
 
+type TemplateKey = "customer_request_received" | "owner_new_request";
+type EmailTemplateVersion = { subject: string; html_body: string };
+
 function response(body: Record<string, unknown>, status = 200) {
   return new Response(JSON.stringify(body), {
     status,
@@ -42,30 +45,41 @@ function escapeHtml(value: string) {
   });
 }
 
-function emailForCustomer(request: RequestRecord, customerEmail: string) {
-  const requestNumber = escapeHtml(request.request_number);
-  const nickname = escapeHtml(request.supporter_nickname);
-  const category = escapeHtml(request.category);
-
-  return {
-    to: customerEmail,
-    subject: `We received your request #${request.request_number}`,
-    html: `<h1>Request received</h1><p>Hi ${nickname},</p><p>Your <strong>${category}</strong> request has been received.</p><p>Your request ID is <strong>#${requestNumber}</strong>. Keep it for your records.</p><p>Hidden Lewd Studio</p>`,
+function renderTemplate(template: EmailTemplateVersion, request: RequestRecord) {
+  const values: Record<string, string> = {
+    request_number: request.request_number,
+    supporter_nickname: request.supporter_nickname,
+    contact_email: request.contact_email,
+    tier: request.tier,
+    category: request.category,
   };
+  const render = (value: string) =>
+    value.replace(/{{([a-z_]+)}}/g, (placeholder, key: string) => {
+      if (!(key in values)) throw new Error(`Unsupported email placeholder: ${placeholder}`);
+      return escapeHtml(values[key]);
+    });
+  return { subject: render(template.subject), html: render(template.html_body) };
 }
 
-function emailForOwner(request: RequestRecord, ownerEmail: string) {
-  const requestNumber = escapeHtml(request.request_number);
-  const nickname = escapeHtml(request.supporter_nickname);
-  const email = escapeHtml(request.contact_email);
-  const category = escapeHtml(request.category);
-  const tier = escapeHtml(request.tier);
-
-  return {
-    to: ownerEmail,
-    subject: `New request #${request.request_number}`,
-    html: `<h1>New request received</h1><p><strong>Request:</strong> #${requestNumber}</p><p><strong>Supporter:</strong> ${nickname}</p><p><strong>Contact:</strong> ${email}</p><p><strong>Tier:</strong> ${tier}</p><p><strong>Category:</strong> ${category}</p>`,
-  };
+async function loadActiveTemplate(
+  adminClient: ReturnType<typeof createClient>,
+  templateKey: TemplateKey,
+) {
+  const { data: template, error: templateError } = await adminClient
+    .from("email_templates")
+    .select("current_version_id")
+    .eq("template_key", templateKey)
+    .single<{ current_version_id: string | null }>();
+  if (templateError || !template?.current_version_id) {
+    throw new Error("The active email template could not be loaded.");
+  }
+  const { data: version, error: versionError } = await adminClient
+    .from("email_template_versions")
+    .select("subject, html_body")
+    .eq("id", template.current_version_id)
+    .single<EmailTemplateVersion>();
+  if (versionError || !version) throw new Error("The active email template could not be loaded.");
+  return version;
 }
 
 async function sendWithResend(
@@ -147,7 +161,71 @@ Deno.serve(async (request) => {
   if (userError || !user) return response({ error: "Unauthorized." }, 401);
   if (!user.email) return response({ error: "Your account needs a verified email address." }, 400);
 
-  const body = (await request.json().catch(() => null)) as { requestId?: unknown } | null;
+  const body = (await request.json().catch(() => null)) as {
+    action?: unknown;
+    requestId?: unknown;
+    templateKey?: unknown;
+  } | null;
+  const action = body?.action === "test_template" ? "test_template" : "deliver_request";
+  const templateKey =
+    body?.templateKey === "customer_request_received" || body?.templateKey === "owner_new_request"
+      ? body.templateKey
+      : null;
+  const isOwner = user.app_metadata?.role === "owner";
+  if (action === "test_template" && (!isOwner || !templateKey)) {
+    return response({ error: "Only an owner can send a template test." }, 403);
+  }
+
+  const adminClient = createClient(supabaseUrl, serviceRoleKey, {
+    auth: { persistSession: false, autoRefreshToken: false },
+  });
+
+  if (action === "test_template") {
+    if (!notificationDeliveryEnabled) {
+      return response(
+        { skipped: true, message: "Notification delivery is disabled in this environment." },
+        202,
+      );
+    }
+    if ((!resendApiKey && !mailpitUrl) || !from) {
+      return response({ error: "Notification delivery is not configured yet." }, 503);
+    }
+    try {
+      const template = await loadActiveTemplate(adminClient, templateKey);
+      const message = {
+        to: user.email,
+        ...renderTemplate(template, {
+          id: "test",
+          request_number: "HLS-TEST-000001",
+          supporter_nickname: "Test supporter",
+          contact_email: user.email,
+          tier: "Chunin",
+          category: "Single Illustration",
+          created_at: new Date().toISOString(),
+        }),
+      };
+      const providerMessageId = mailpitUrl
+        ? await sendWithMailpit(mailpitUrl, from, message)
+        : await sendWithResend(
+            resendApiKey as string,
+            from,
+            `template-test:${templateKey}:${crypto.randomUUID()}`,
+            message,
+          );
+      return response({ sent: true, providerMessageId });
+    } catch (error) {
+      return response(
+        {
+          error:
+            error instanceof Error
+              ? error.message.slice(0, 500)
+              : "Template test could not be sent.",
+        },
+        500,
+      );
+    }
+  }
+
   const requestId = typeof body?.requestId === "string" ? body.requestId : "";
   if (
     !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(requestId)
@@ -155,9 +233,6 @@ Deno.serve(async (request) => {
     return response({ error: "A valid request ID is required." }, 400);
   }
 
-  const adminClient = createClient(supabaseUrl, serviceRoleKey, {
-    auth: { persistSession: false, autoRefreshToken: false },
-  });
   const { data: requestRecord, error: requestError } = await adminClient
     .from("requests")
     .select("id, request_number, supporter_nickname, contact_email, tier, category, created_at")
@@ -210,10 +285,13 @@ Deno.serve(async (request) => {
     if (!claimed) continue;
 
     try {
-      const message =
-        delivery.recipient_kind === "customer"
-          ? emailForCustomer(requestRecord, user.email)
-          : emailForOwner(requestRecord, ownerEmail);
+      const templateKey: TemplateKey =
+        delivery.recipient_kind === "customer" ? "customer_request_received" : "owner_new_request";
+      const template = await loadActiveTemplate(adminClient, templateKey);
+      const message = {
+        to: delivery.recipient_kind === "customer" ? user.email : ownerEmail,
+        ...renderTemplate(template, requestRecord),
+      };
       const providerMessageId = mailpitUrl
         ? await sendWithMailpit(mailpitUrl, from, message)
         : await sendWithResend(

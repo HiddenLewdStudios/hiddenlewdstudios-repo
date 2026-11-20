@@ -60,6 +60,19 @@ type InternalNoteRecord = {
 };
 
 type PlanningRecord = { due_date: string | null; priority: string };
+type EmailTemplateRecord = {
+  template_key: "customer_request_received" | "owner_new_request";
+  label: string;
+  current_version_id: string | null;
+};
+type EmailTemplateVersion = {
+  id: string;
+  template_key: EmailTemplateRecord["template_key"];
+  subject: string;
+  html_body: string;
+  is_default: boolean;
+  created_at: string;
+};
 
 type RequestDetail = {
   characters: CharacterRecord[];
@@ -90,6 +103,17 @@ function labelForStatus(status: string) {
   return status.replaceAll("_", " ");
 }
 
+function renderTemplatePreview(value: string) {
+  const values: Record<string, string> = {
+    request_number: "HLS-TEST-000001",
+    supporter_nickname: "Test supporter",
+    contact_email: "owner@example.test",
+    tier: "Chunin",
+    category: "Single Illustration",
+  };
+  return value.replace(/{{([a-z_]+)}}/g, (placeholder, key: string) => values[key] ?? placeholder);
+}
+
 const nextStatusesByCurrentStatus: Record<string, string[]> = {
   submitted: ["in_review", "cancelled"],
   in_review: ["accepted", "cancelled"],
@@ -98,6 +122,13 @@ const nextStatusesByCurrentStatus: Record<string, string[]> = {
   completed: [],
   cancelled: [],
 };
+const emailTemplatePlaceholders = new Set([
+  "request_number",
+  "supporter_nickname",
+  "contact_email",
+  "tier",
+  "category",
+]);
 
 export default function OwnerDashboard() {
   const [user, setUser] = useState<User | null>(null);
@@ -119,6 +150,17 @@ export default function OwnerDashboard() {
   const [priority, setPriority] = useState("normal");
   const [isSavingPlanning, setIsSavingPlanning] = useState(false);
   const [page, setPage] = useState(0);
+  const [emailTemplates, setEmailTemplates] = useState<EmailTemplateRecord[]>([]);
+  const [selectedTemplateKey, setSelectedTemplateKey] = useState<
+    EmailTemplateRecord["template_key"]
+  >("customer_request_received");
+  const [templateVersions, setTemplateVersions] = useState<EmailTemplateVersion[]>([]);
+  const [templateSubject, setTemplateSubject] = useState("");
+  const [templateHtml, setTemplateHtml] = useState("");
+  const [isLoadingTemplates, setIsLoadingTemplates] = useState(false);
+  const [isSavingTemplate, setIsSavingTemplate] = useState(false);
+  const [isSendingTemplateTest, setIsSendingTemplateTest] = useState(false);
+  const [templateMessage, setTemplateMessage] = useState("");
   const pageSize = 20;
 
   useEffect(() => {
@@ -139,6 +181,22 @@ export default function OwnerDashboard() {
         setRequests([]);
         setIsLoading(false);
         return;
+      }
+
+      const { data: templateData, error: templateError } = await client
+        .from("email_templates")
+        .select("template_key, label, current_version_id")
+        .order("template_key");
+      if (templateError) {
+        setErrorMessage("Owner email templates could not be loaded. Please try again.");
+      } else {
+        const templates = (templateData ?? []) as EmailTemplateRecord[];
+        setEmailTemplates(templates);
+        const templateKey = templates[0]?.template_key;
+        if (templateKey) {
+          setSelectedTemplateKey(templateKey);
+          void loadTemplateVersions(templateKey);
+        }
       }
 
       const { data, error } = await client
@@ -168,6 +226,35 @@ export default function OwnerDashboard() {
       subscription.unsubscribe();
     };
   }, []);
+
+  async function loadTemplateVersions(templateKey: EmailTemplateRecord["template_key"]) {
+    if (!supabase) return;
+    setIsLoadingTemplates(true);
+    setTemplateMessage("");
+    const [{ data: versions, error: versionsError }, { data: template }] = await Promise.all([
+      supabase
+        .from("email_template_versions")
+        .select("id, template_key, subject, html_body, is_default, created_at")
+        .eq("template_key", templateKey)
+        .order("created_at", { ascending: false }),
+      supabase
+        .from("email_templates")
+        .select("current_version_id")
+        .eq("template_key", templateKey)
+        .single(),
+    ]);
+    if (versionsError) {
+      setErrorMessage("Email template versions could not be loaded. Please try again.");
+      setIsLoadingTemplates(false);
+      return;
+    }
+    const nextVersions = (versions ?? []) as EmailTemplateVersion[];
+    const active = nextVersions.find((version) => version.id === template?.current_version_id);
+    setTemplateVersions(nextVersions);
+    setTemplateSubject(active?.subject ?? "");
+    setTemplateHtml(active?.html_body ?? "");
+    setIsLoadingTemplates(false);
+  }
 
   const statuses = useMemo(
     () => Array.from(new Set(requests.map((request) => request.status))).sort(),
@@ -369,6 +456,82 @@ export default function OwnerDashboard() {
     await selectRequest(selectedRequest);
   }
 
+  function validateTemplatePlaceholders() {
+    const placeholders = [
+      ...templateSubject.matchAll(/{{([a-z_]+)}}/g),
+      ...templateHtml.matchAll(/{{([a-z_]+)}}/g),
+    ];
+    return placeholders.every((match) => emailTemplatePlaceholders.has(match[1]));
+  }
+
+  async function saveEmailTemplate() {
+    if (!supabase || !user || !templateSubject.trim() || !templateHtml.trim()) return;
+    if (!validateTemplatePlaceholders()) {
+      setTemplateMessage("Use only the documented placeholders below.");
+      return;
+    }
+    setIsSavingTemplate(true);
+    setTemplateMessage("");
+    const { data: version, error: versionError } = await supabase
+      .from("email_template_versions")
+      .insert({
+        template_key: selectedTemplateKey,
+        subject: templateSubject.trim(),
+        html_body: templateHtml.trim(),
+        created_by: user.id,
+      })
+      .select("id")
+      .single();
+    if (versionError || !version) {
+      setTemplateMessage("The template version could not be saved. Please try again.");
+      setIsSavingTemplate(false);
+      return;
+    }
+    const { error: activationError } = await supabase
+      .from("email_templates")
+      .update({ current_version_id: version.id })
+      .eq("template_key", selectedTemplateKey);
+    setIsSavingTemplate(false);
+    if (activationError) {
+      setTemplateMessage(
+        "The version was saved but could not be activated. Please choose it from history.",
+      );
+      await loadTemplateVersions(selectedTemplateKey);
+      return;
+    }
+    setTemplateMessage("New template version saved and activated.");
+    await loadTemplateVersions(selectedTemplateKey);
+  }
+
+  async function activateTemplateVersion(versionId: string) {
+    if (!supabase) return;
+    const { error } = await supabase
+      .from("email_templates")
+      .update({ current_version_id: versionId })
+      .eq("template_key", selectedTemplateKey);
+    if (error) {
+      setTemplateMessage("This version could not be activated. Please try again.");
+      return;
+    }
+    setTemplateMessage("Template version activated.");
+    await loadTemplateVersions(selectedTemplateKey);
+  }
+
+  async function sendTemplateTest() {
+    if (!supabase) return;
+    setIsSendingTemplateTest(true);
+    setTemplateMessage("");
+    const { error } = await supabase.functions.invoke("send-request-notifications", {
+      body: { action: "test_template", templateKey: selectedTemplateKey },
+    });
+    setIsSendingTemplateTest(false);
+    setTemplateMessage(
+      error
+        ? "The test email could not be sent. Check that hosted delivery is enabled."
+        : "A test of the active template was sent only to your verified owner email.",
+    );
+  }
+
   async function addInternalNote() {
     if (!supabase || !user || !selectedRequest || !internalNote.trim()) return;
     setIsSavingInternalNote(true);
@@ -403,8 +566,8 @@ export default function OwnerDashboard() {
         <div>
           <h2 className="section-header">Owner workspace</h2>
           <p className="field-hint">
-            Review requests, post customer updates, and keep owner-only notes. Status changes are
-            not available yet.
+            Review requests, manage customer updates and private notes, and keep production work
+            planned.
           </p>
         </div>
         <p className="field-hint">{requests.length} total requests</p>
@@ -441,6 +604,128 @@ export default function OwnerDashboard() {
         >
           Export filtered CSV
         </button>
+      </section>
+
+      <section className="section-card owner-email-templates">
+        <div className="request-history-head">
+          <div>
+            <h2 className="section-header">Notification email templates</h2>
+            <p className="field-hint">
+              Versions are immutable. A test sends the active version only to your verified owner
+              email.
+            </p>
+          </div>
+        </div>
+        {!emailTemplates.length ? (
+          <p className="history-message">
+            Email templates are unavailable until their migration is applied.
+          </p>
+        ) : (
+          <>
+            <label>
+              Template
+              <select
+                value={selectedTemplateKey}
+                onChange={(event) => {
+                  const templateKey = event.target.value as EmailTemplateRecord["template_key"];
+                  setSelectedTemplateKey(templateKey);
+                  void loadTemplateVersions(templateKey);
+                }}
+              >
+                {emailTemplates.map((template) => (
+                  <option key={template.template_key} value={template.template_key}>
+                    {template.label}
+                  </option>
+                ))}
+              </select>
+            </label>
+            {isLoadingTemplates ? (
+              <p className="history-message">Loading template versions…</p>
+            ) : (
+              <div className="owner-template-grid">
+                <div>
+                  <label className="owner-message-editor">
+                    Subject
+                    <input
+                      value={templateSubject}
+                      maxLength={200}
+                      onChange={(event) => setTemplateSubject(event.target.value)}
+                    />
+                  </label>
+                  <label className="owner-message-editor">
+                    HTML body
+                    <textarea
+                      value={templateHtml}
+                      maxLength={20000}
+                      rows={12}
+                      onChange={(event) => setTemplateHtml(event.target.value)}
+                    />
+                  </label>
+                  <p className="field-hint">
+                    Placeholders: {"{{request_number}}"}, {"{{supporter_nickname}}"},{" "}
+                    {"{{contact_email}}"}, {"{{tier}}"}, {"{{category}}"}.
+                  </p>
+                  <div className="owner-status-editor">
+                    <button
+                      className="btn btn-cyan"
+                      type="button"
+                      disabled={isSavingTemplate || !templateSubject.trim() || !templateHtml.trim()}
+                      onClick={() => void saveEmailTemplate()}
+                    >
+                      {isSavingTemplate ? "Saving…" : "Save and activate version"}
+                    </button>
+                    <button
+                      className="btn btn-outline"
+                      type="button"
+                      disabled={isSendingTemplateTest}
+                      onClick={() => void sendTemplateTest()}
+                    >
+                      {isSendingTemplateTest ? "Sending…" : "Send active-template test"}
+                    </button>
+                  </div>
+                  {templateMessage && <p className="field-hint">{templateMessage}</p>}
+                </div>
+                <div>
+                  <h3>Preview</h3>
+                  <p className="field-hint">Subject: {renderTemplatePreview(templateSubject)}</p>
+                  <iframe
+                    className="email-template-preview"
+                    sandbox=""
+                    srcDoc={renderTemplatePreview(templateHtml)}
+                    title="Email template preview"
+                  />
+                </div>
+              </div>
+            )}
+            <section className="request-history-section">
+              <h3>Version history</h3>
+              <ol className="status-history-list">
+                {templateVersions.map((version) => {
+                  const active =
+                    emailTemplates.find((template) => template.template_key === selectedTemplateKey)
+                      ?.current_version_id === version.id;
+                  return (
+                    <li key={version.id}>
+                      <strong>
+                        {active ? "Active" : version.is_default ? "Default" : "Previous"}
+                      </strong>{" "}
+                      · {formatDate(version.created_at)} · {version.subject}
+                      {!active && (
+                        <button
+                          className="btn btn-outline"
+                          type="button"
+                          onClick={() => void activateTemplateVersion(version.id)}
+                        >
+                          {version.is_default ? "Restore default" : "Activate"}
+                        </button>
+                      )}
+                    </li>
+                  );
+                })}
+              </ol>
+            </section>
+          </>
+        )}
       </section>
 
       <div className="owner-dashboard-layout">

@@ -2,8 +2,7 @@
 
 ## Current milestone
 
-Phases 1 and 2 are complete. Phase 3 is active. Sprints 3.1–3.7 are complete; the remaining
-Phase 3 scope is the owner-only email-template workflow and its operational regression checklist.
+Phases 1, 2, and 3 are complete. The next planned milestone is Phase 4.
 
 ## Completed product work
 
@@ -35,6 +34,7 @@ Phase 3 scope is the owner-only email-template workflow and its operational regr
 - `20261119221851_phase3_request_communications.sql`
 - `20261119224234_phase3_owner_status_transitions.sql`
 - `20261119232152_phase3_request_planning.sql`
+- `20261119235159_phase3_email_templates.sql`
 
 The latest five Phase 3 migrations are deployed to the hosted project. The earlier profile migrations add and backfill `profiles.last_supporter_nickname`,
 `profiles.last_supporter_platform`, and `profiles.last_shinobi_registration`. They have been
@@ -70,7 +70,7 @@ local only and is removed by a local reset.
 - Frontend Actions variables: `PUBLIC_SUPABASE_URL` and `PUBLIC_SUPABASE_PUBLISHABLE_KEY`.
 - Hosted function secrets: `NOTIFICATION_DELIVERY_ENABLED`, `RESEND_API_KEY`,
   `OWNER_NOTIFICATION_EMAIL`, and `EMAIL_FROM`.
-- The notification Edge Function is deployed at version 4.
+- The notification Edge Function is deployed at version 5.
 - Do not add hosted project URLs, service-role keys, Resend keys, or OAuth client secrets to tracked
   files.
 

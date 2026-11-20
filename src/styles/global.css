@@ -694,6 +694,27 @@ textarea {
   border: 1px solid var(--border);
   border-radius: 8px;
 }
+.owner-email-templates {
+  margin-top: 1rem;
+}
+.owner-template-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.15fr) minmax(260px, 0.85fr);
+  gap: 1rem;
+  margin-top: 1rem;
+}
+.email-template-preview {
+  width: 100%;
+  min-height: 260px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: #fff;
+}
+.status-history-list .btn {
+  margin-left: 0.5rem;
+  padding: 0.3rem 0.55rem;
+  font-size: 0.72rem;
+}
 
 @media (max-width: 600px) {
   .site-shell {
@@ -705,6 +726,9 @@ textarea {
   }
   .owner-controls,
   .owner-dashboard-layout {
+    grid-template-columns: 1fr;
+  }
+  .owner-template-grid {
     grid-template-columns: 1fr;
   }
   .tools-bar {
