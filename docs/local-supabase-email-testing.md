@@ -34,6 +34,22 @@ PUBLIC_SUPABASE_PUBLISHABLE_KEY=sb_publishable_...
 
 Never put a local or hosted secret/service-role key in this file.
 
+## Local Google and Discord OAuth
+
+The local Auth service reads provider credentials from the ignored supabase/.env file. Add the
+existing development OAuth credentials there; do not put them in the Edge Function environment or
+commit them. npm run supabase:start loads that ignored file before starting Auth.
+
+In each provider console, register the local callback URL shown by **Supabase Studio →
+Authentication → Providers**. Google requires a loopback localhost callback for HTTP local
+development, so use the SSH forwarding workflow below when developing remotely.
+
+For the hosted project, enable the same providers in **Supabase Dashboard → Authentication →
+Providers**, keep credentials in the Dashboard only, and copy the hosted callback URL from that
+screen into the matching Google/Discord OAuth application. Also retain the GitHub Pages URL in
+Auth's Site URL and Redirect URLs. Do not hardcode a hosted project URL or client secret in this
+repository.
+
 ## Test a flow
 
 1. Start the local stack with `npm run supabase:start`, then start the app with `npm run dev`.

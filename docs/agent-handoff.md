@@ -71,6 +71,10 @@ local only and is removed by a local reset.
 - Hosted function secrets: `NOTIFICATION_DELIVERY_ENABLED`, `RESEND_API_KEY`,
   `OWNER_NOTIFICATION_EMAIL`, and `EMAIL_FROM`.
 - The notification Edge Function is deployed at version 5.
+- Local Google and Discord OAuth credentials belong only in ignored `supabase/.env`; the start
+  script loads them into local Auth. Both hosted providers are enabled and their authorization
+  endpoints have been checked. The provider consoles must retain the callback URLs shown in the
+  corresponding Supabase Auth provider settings.
 - Do not add hosted project URLs, service-role keys, Resend keys, or OAuth client secrets to tracked
   files.
 

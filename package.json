@@ -8,8 +8,8 @@
   },
   "scripts": {
     "dev": "astro dev --host",
-    "supabase:start": "npx --yes supabase@latest start",
-    "supabase:reset": "npx --yes supabase@latest db reset --no-seed",
+    "supabase:start": "set -a; [ -f supabase/.env ] && . supabase/.env; set +a; npx --yes supabase@latest start",
+    "supabase:reset": "set -a; [ -f supabase/.env ] && . supabase/.env; set +a; npx --yes supabase@latest db reset --no-seed",
     "build": "astro check && astro build",
     "preview": "astro preview",
     "check": "astro check",
