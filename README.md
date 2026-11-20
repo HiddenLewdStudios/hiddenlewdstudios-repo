@@ -43,6 +43,13 @@ grant owner access.
 
 ## Local development fixtures
 
-The current local stack has disposable `HLS-DEV-*` request fixtures for manual Phase 3 testing.
-`abu@gmail.com` is granted the local server-managed owner role. The fixtures are local-only and a
-`npm run supabase:reset` removes them.
+`npm run supabase:reset` recreates disposable `HLS-DEV-*` request fixtures for manual testing.
+Use `abu@gmail.com` (server-managed owner) or `abu2@gmail.com` (customer), each with
+`ChangeMe!LocalOnly2026`. Fixtures are local-only. Never use `--include-seed` against production.
+
+## Character search
+
+Local development never calls Anime Characters Database (ACDB):
+`ACDB_EXTERNAL_ENABLED` is fixed to `false` in `supabase/config.toml`. Production-only search uses
+a JWT-protected server-side proxy, with a shared one-request-per-second upstream budget, caching,
+and visible ACDB/ODbL attribution. See [the dated ACDB reference](./docs/acdb-api-reference-2026-11-20.md).

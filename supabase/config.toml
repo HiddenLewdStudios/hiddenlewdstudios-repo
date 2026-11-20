@@ -136,8 +136,12 @@ enabled = true
 [functions.send-request-notifications]
 verify_jwt = true
 
+[functions.character-search]
+verify_jwt = true
+
 [edge_runtime.secrets]
 MAILPIT_URL = "http://inbucket:8025"
+ACDB_EXTERNAL_ENABLED = "false"
 
 # Image transformation API is available to Supabase Pro plan.
 # [storage.image_transformation]

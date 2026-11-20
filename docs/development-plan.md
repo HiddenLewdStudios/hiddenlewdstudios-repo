@@ -2,8 +2,7 @@
 
 ## Current status
 
-Phases 1 and 2 are complete. Phase 3 is the active milestone: customer request history and an
-owner-only request-management dashboard.
+Phases 1 through 4 are complete. Phase 5 remains deferred pending payment-processor eligibility.
 
 ### Phase 1 complete scope
 
@@ -221,9 +220,19 @@ variables, and the test workflow. This stack is separate from the hosted Supabas
 
 ## Phase 4 — Character and platform integrations
 
-- A cached, rate-limited server-side Anime Characters Database proxy with attribution.
-- Search/autocomplete with a safe local fallback.
-- Optional permitted Discord and supporter-platform account integrations.
+- Complete: authenticated character autocomplete uses a cached, server-side Anime Characters
+  Database (ACDB) proxy. The browser never contacts ACDB directly; anonymous users retain the
+  local catalog fallback.
+- Complete: cache misses are coalesced. Every outbound attempt needs a shared, atomic Postgres
+  permit, with a one-second minimum interval across all Edge Function workers. Provider failures
+  create a shared cooldown and honor `Retry-After` when supplied. Redirects and automatic retries
+  are disabled.
+- Complete: ACDB results include source links and visible ACDB/ODbL attribution. Search results
+  remain suggestions subject to the studio's adult-only eligibility review.
+- Complete: local development hard-disables external search through
+  `ACDB_EXTERNAL_ENABLED = "false"`; local and CI testing use fixtures only.
+- Deferred: optional Discord and supporter-platform account integrations require a separate
+  provider-permission review and are not included in this phase.
 
 ## Phase 5 — Payments
 

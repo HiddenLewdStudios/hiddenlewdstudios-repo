@@ -15,7 +15,10 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  acdb:
+    uses: ./.github/workflows/acdb.yml
   build:
+    needs: acdb
     runs-on: ubuntu-latest
     steps:
       - name: Check out repository

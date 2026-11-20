@@ -2,7 +2,7 @@
 
 ## Current milestone
 
-Phases 1, 2, and 3 are complete. The next planned milestone is Phase 4.
+Phases 1 through 4 are complete. Phase 5 remains deferred pending payment-processor eligibility.
 
 ## Completed product work
 
@@ -60,10 +60,10 @@ notifications go to Mailpit, not Resend. The function’s local Mailpit endpoint
 `[edge_runtime.secrets]` in `supabase/config.toml`; do not add that setting to hosted function
 secrets.
 
-The current local database includes disposable `HLS-DEV-*` request fixtures spanning accepted,
+`npm run supabase:reset` recreates disposable `HLS-DEV-*` request fixtures spanning accepted,
 in-progress, completed, and cancelled work. `abu@gmail.com` has local server-managed owner app
-metadata, and the fixtures include one customer-visible update and one internal note. This data is
-local only and is removed by a local reset.
+metadata; `abu2@gmail.com` is the local customer. Both use `ChangeMe!LocalOnly2026`; fixtures
+include one customer-visible update and one internal note. This data is local only.
 
 ## Hosted configuration
 
@@ -78,11 +78,38 @@ local only and is removed by a local reset.
 - Do not add hosted project URLs, service-role keys, Resend keys, or OAuth client secrets to tracked
   files.
 
-## Next implementation boundary
+## Phase 4 — character search — Complete
 
-Build the owner-only email-template editor, preview, safe test-send path, version history, and
-restore-default controls. Keep private files private, retain immutable status history, and do not
-weaken customer isolation.
+- Authenticated character autocomplete uses `character-search`, a JWT-required Edge Function.
+  Browser traffic never calls ACDB directly. Anonymous users and local development retain the
+  local catalog fallback.
+- `ACDB_EXTERNAL_ENABLED` is explicitly `false` in local Edge Runtime configuration. Production
+  has the feature flag enabled only after the database migrations, handler fixture suite, and
+  isolated Postgres limiter test passed. Do not set this flag in local `.env` files.
+- The proxy has a private cache, same-query cache-miss coalescing, a service-role-only atomic
+  global one-request-per-second permit, timeout, no redirects, no automatic retries, and a shared
+  failure cooldown honoring `Retry-After` when supplied.
+- UI keeps ACDB source links plus visible ACDB/ODbL attribution. ACDB data remains a suggestion,
+  not an adult-content eligibility decision.
+- `npm run test:acdb` is network-isolated. `tests/acdb/limiter.sh` must run only against fresh,
+  disposable Postgres with `20261120120000_acdb_request_interval.sql` applied. Never send test or
+  CI traffic to ACDB.
+- Current live rule recheck: the API page confirms the character-query endpoint; the public terms
+  prohibit scrapers/scanners. The Wiki access-rules page was unavailable during the 2026-11-20
+  recheck, so use the dated archive reference and recheck it again before changing live behavior.
+
+## Required hosted configuration
+
+- Production `character-search` is deployed with JWT verification and requires
+  `ACDB_EXTERNAL_ENABLED=true` as a hosted Edge Function secret. Never commit that value together
+  with hosted URLs, service-role keys, OAuth credentials, or delivery-provider credentials.
+- Set or inspect that production flag in the Supabase Dashboard. The local
+  `[edge_runtime.secrets]` block intentionally contains `MAILPIT_URL`; do not let a CLI secret
+  command sync that local-only value to production.
+- The hosted security advisor continues to report only its pre-existing recommendation to enable
+  Supabase Auth leaked-password protection. Enable it in the Auth Dashboard before a public launch.
+- Optional Discord and supporter-platform account integrations are intentionally deferred. Do not
+  add provider credentials without a separate permission and privacy review.
 
 ## Sprint 3.2 — owner authorization and owner-only policies — Complete
 

@@ -1,4 +1,4 @@
-import { type SyntheticEvent, useEffect, useMemo, useState } from "react";
+import { type SyntheticEvent, useEffect, useMemo, useRef, useState } from "react";
 import type { User } from "@supabase/supabase-js";
 import { characters, tagPool, type Character } from "../data/characters";
 import { isSupabaseConfigured, setSessionPersistence, supabase } from "../lib/supabase";
@@ -8,6 +8,7 @@ type Tier = "" | "Genin" | "Chunin" | "Jounin" | "Anbu" | "Akatsuki" | "Kara" | 
 type SelectedTier = Exclude<Tier, "">;
 type SelectedCategory = Exclude<RequestCategory, "">;
 type CharacterSlot = { name: string; versionIndex: number };
+type ExternalCharacter = Character & { sourceUrl: string };
 type AuthMode = "signIn" | "signUp" | "forgotPassword" | "resetPassword" | "magicLink";
 
 type FormState = {
@@ -97,8 +98,8 @@ function storageObjectId(): string {
   return `${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`;
 }
 
-function characterFor(name: string): Character | undefined {
-  return characters.find(
+function characterFor(name: string, catalog = characters): Character | undefined {
+  return catalog.find(
     (character) => character.name.toLocaleLowerCase() === name.trim().toLocaleLowerCase(),
   );
 }
@@ -169,14 +170,24 @@ export default function RequestForm() {
   const [submittedRequestNumber, setSubmittedRequestNumber] = useState("");
   const [submissionError, setSubmissionError] = useState("");
   const [notificationMessage, setNotificationMessage] = useState("");
+  const [externalCharacters, setExternalCharacters] = useState<ExternalCharacter[]>([]);
+  const searchTimer = useRef<number | null>(null);
 
   const isInterview = form.category === "Interview";
   const isStory = form.category === "Quick Story Event";
   const currentCategories = form.tier ? allowedCategories[form.tier] : [];
   const selectedSlots = form.slots.slice(0, form.characterCount);
+  const availableCharacters = useMemo(
+    () => [...characters, ...externalCharacters.filter((item) => !characterFor(item.name))],
+    [externalCharacters],
+  );
   const selectedCharacters = useMemo(
-    () => selectedSlots.map((slot) => ({ slot, character: characterFor(slot.name) })),
-    [selectedSlots],
+    () =>
+      selectedSlots.map((slot) => ({
+        slot,
+        character: characterFor(slot.name, availableCharacters),
+      })),
+    [availableCharacters, selectedSlots],
   );
 
   useEffect(() => {
@@ -217,6 +228,38 @@ export default function RequestForm() {
 
   function update<K extends keyof FormState>(key: K, value: FormState[K]) {
     setForm((current) => ({ ...current, [key]: value }));
+  }
+
+  function searchExternalCharacters(value: string) {
+    const client = supabase;
+    if (searchTimer.current) window.clearTimeout(searchTimer.current);
+    const query = value.trim();
+    if (query.length < 2 || !user || !client) {
+      setExternalCharacters([]);
+      return;
+    }
+    searchTimer.current = window.setTimeout(async () => {
+      try {
+        const { data, error } = await client.functions.invoke("character-search", {
+          body: { q: query },
+        });
+        const body = data as {
+          results?: Array<{ name: string; franchise: string; sourceUrl: string }>;
+        };
+        if (!error) {
+          setExternalCharacters(
+            (body.results ?? []).map((item) => ({
+              name: item.name,
+              franchise: item.franchise,
+              versions: [{ label: "Default" }],
+              sourceUrl: item.sourceUrl,
+            })),
+          );
+        }
+      } catch {
+        setExternalCharacters([]);
+      }
+    }, 350);
   }
 
   function updateSlot(index: number, updateValue: Partial<CharacterSlot>) {
@@ -1088,8 +1131,10 @@ export default function RequestForm() {
             </div>
           </div>
           <p className="field-hint">
-            The demo catalog is local. Live character search and eligibility checks will be
-            introduced through a server-side API in a later phase.
+            Search suggestions include data from{" "}
+            <a href="https://www.animecharactersdatabase.com/">Anime Characters Database</a> under
+            the <a href="https://opendatacommons.org/licenses/odbl/1-0/">Open Database License</a>.
+            Names still require adult-only eligibility review.
           </p>
           {castMessage && (
             <p className="field-hint" role="status">
@@ -1097,49 +1142,65 @@ export default function RequestForm() {
             </p>
           )}
           <datalist id="character-list">
-            {characters.map((character) => (
+            {availableCharacters.map((character) => (
               <option key={character.name} value={character.name}>
                 {character.franchise}
               </option>
             ))}
           </datalist>
           <div className="slots-container">
-            {selectedCharacters.map(({ slot, character }, index) => (
-              <article className="char-card" key={index}>
-                <span className="char-badge">Slot {index + 1}</span>
-                <div className="character-avatar" aria-hidden="true">
-                  {slot.name ? slot.name.charAt(0).toUpperCase() : "?"}
-                </div>
-                <div className="character-series">
-                  {character?.franchise ?? "Custom / original character"}
-                </div>
-                <label htmlFor={`character-${index}`}>Character name</label>
-                <input
-                  id={`character-${index}`}
-                  list="character-list"
-                  value={slot.name}
-                  onChange={(event) =>
-                    updateSlot(index, { name: event.target.value, versionIndex: 0 })
-                  }
-                  placeholder="Search or enter a name"
-                  maxLength={100}
-                />
-                {character && character.versions.length > 1 && (
-                  <div className="version-pills" aria-label="Character version">
-                    {character.versions.map((version, versionIndex) => (
-                      <button
-                        className={`version-button ${slot.versionIndex === versionIndex ? "active" : ""}`}
-                        type="button"
-                        key={version.label}
-                        onClick={() => updateSlot(index, { versionIndex })}
-                      >
-                        {version.label}
-                      </button>
-                    ))}
+            {selectedCharacters.map(({ slot, character }, index) => {
+              const externalCharacter = externalCharacters.find(
+                (item) => item.name.toLocaleLowerCase() === slot.name.trim().toLocaleLowerCase(),
+              );
+              return (
+                <article className="char-card" key={index}>
+                  <span className="char-badge">Slot {index + 1}</span>
+                  <div className="character-avatar" aria-hidden="true">
+                    {slot.name ? slot.name.charAt(0).toUpperCase() : "?"}
                   </div>
-                )}
-              </article>
-            ))}
+                  <div className="character-series">
+                    {character?.franchise ?? "Custom / original character"}
+                  </div>
+                  <label htmlFor={`character-${index}`}>Character name</label>
+                  <input
+                    id={`character-${index}`}
+                    list="character-list"
+                    value={slot.name}
+                    onChange={(event) => {
+                      updateSlot(index, { name: event.target.value, versionIndex: 0 });
+                      searchExternalCharacters(event.target.value);
+                    }}
+                    placeholder="Search or enter a name"
+                    maxLength={100}
+                  />
+                  {externalCharacter && (
+                    <a
+                      className="field-hint"
+                      href={externalCharacter.sourceUrl}
+                      target="_blank"
+                      rel="noreferrer"
+                    >
+                      View this suggestion at Anime Characters Database
+                    </a>
+                  )}
+                  {character && character.versions.length > 1 && (
+                    <div className="version-pills" aria-label="Character version">
+                      {character.versions.map((version, versionIndex) => (
+                        <button
+                          className={`version-button ${slot.versionIndex === versionIndex ? "active" : ""}`}
+                          type="button"
+                          key={version.label}
+                          onClick={() => updateSlot(index, { versionIndex })}
+                        >
+                          {version.label}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </article>
+              );
+            })}
           </div>
         </section>
 

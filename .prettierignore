@@ -1,5 +1,6 @@
 docs/prototype/
 .env.example
+supabase/.temp/
 Fix All Page Mistakes.md
 Fix Cast Selection Interaction Issues.md
 Hidden Lewd Studios Development Plan.md

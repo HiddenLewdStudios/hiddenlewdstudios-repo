@@ -9,13 +9,14 @@
   "scripts": {
     "dev": "astro dev --host",
     "supabase:start": "set -a; [ -f supabase/.env ] && . supabase/.env; set +a; npx --yes supabase@latest start",
-    "supabase:reset": "set -a; [ -f supabase/.env ] && . supabase/.env; set +a; npx --yes supabase@latest db reset --no-seed",
+    "supabase:reset": "set -a; [ -f supabase/.env ] && . supabase/.env; set +a; npx --yes supabase@latest db reset",
     "build": "astro check && astro build",
     "preview": "astro preview",
     "check": "astro check",
     "lint": "eslint .",
     "format": "prettier --write .",
-    "format:check": "prettier --check ."
+    "format:check": "prettier --check .",
+    "test:acdb": "node --experimental-vm-modules --test tests/acdb/handler.test.mjs"
   },
   "dependencies": {
     "@astrojs/react": "^5.0.7",
