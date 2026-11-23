@@ -172,8 +172,9 @@ enabled = true
 # The base URL of your website. Used as an allow-list for redirects and for constructing URLs used
 # in emails.
 site_url = "http://127.0.0.1:4321/hiddenlewdstudios-repo/"
-# The public URL that Auth serves on. Defaults to the API external URL with `/auth/v1` appended.
-external_url = "http://127.0.0.1:54321/auth/v1"
+# The public URL that Auth serves on. Google and Discord OAuth clients register this exact callback
+# as `http://localhost:54321/auth/v1/callback`; do not replace localhost with a LAN address.
+external_url = "http://localhost:54321/auth/v1"
 # A list of *exact* URLs that auth providers are permitted to redirect to post authentication.
 additional_redirect_urls = [
   "http://localhost:4321/hiddenlewdstudios-repo/",
@@ -353,9 +354,9 @@ max_frequency = "5s"
 # `twitter`, `x`, `slack_oidc`, `spotify`, `workos`, `zoom`.
 [auth.external.discord]
 enabled = true
-client_id = "env(SUPABASE_AUTH_EXTERNAL_DISCORD_CLIENTID)"
+client_id = "env(HLS_DISCORD_OAUTH_CLIENT_ID)"
 # DO NOT commit your OAuth provider secret to git. Use environment variable substitution instead:
-secret = "env(SUPABASE_AUTH_EXTERNAL_DISCORD_SECRET)"
+secret = "env(HLS_DISCORD_OAUTH_SECRET)"
 # Overrides the default auth callback URL derived from auth.external_url.
 redirect_uri = ""
 # Overrides the default auth provider URL. Used to support self-hosted gitlab, single-tenant Azure,
@@ -368,9 +369,9 @@ email_optional = false
 
 [auth.external.google]
 enabled = true
-client_id = "env(SUPABASE_AUTH_EXTERNAL_GOOGLE_CLIENTID)"
+client_id = "env(HLS_GOOGLE_OAUTH_CLIENT_ID)"
 # DO NOT commit your OAuth provider secret to git. Use environment variable substitution instead:
-secret = "env(SUPABASE_AUTH_EXTERNAL_GOOGLE_SECRET)"
+secret = "env(HLS_GOOGLE_OAUTH_SECRET)"
 # Overrides the default auth callback URL derived from auth.external_url.
 redirect_uri = ""
 # Overrides the default auth provider URL. Used to support self-hosted gitlab, single-tenant Azure,

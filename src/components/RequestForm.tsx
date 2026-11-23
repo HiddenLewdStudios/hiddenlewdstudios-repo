@@ -175,7 +175,8 @@ export default function RequestForm() {
 
   const isInterview = form.category === "Interview";
   const isStory = form.category === "Quick Story Event";
-  const currentCategories = form.tier ? allowedCategories[form.tier] : [];
+  const currentCategories: SelectedCategory[] =
+    form.tier && form.tier in allowedCategories ? allowedCategories[form.tier as SelectedTier] : [];
   const selectedSlots = form.slots.slice(0, form.characterCount);
   const availableCharacters = useMemo(
     () => [...characters, ...externalCharacters.filter((item) => !characterFor(item.name))],
@@ -207,7 +208,11 @@ export default function RequestForm() {
         email: nextUser.email ?? current.email,
         nickname: profile?.last_supporter_nickname || current.nickname,
         platform: profile?.last_supporter_platform || current.platform,
-        tier: (profile?.last_shinobi_registration as Tier) || current.tier,
+        tier:
+          profile?.last_shinobi_registration &&
+          profile.last_shinobi_registration in allowedCategories
+            ? (profile.last_shinobi_registration as Tier)
+            : current.tier,
       }));
     }
 
@@ -272,8 +277,9 @@ export default function RequestForm() {
 
   function changeTier(tier: Tier) {
     setForm((current) => {
-      const categories = tier ? allowedCategories[tier] : [];
-      const category =
+      const categories: SelectedCategory[] =
+        tier && tier in allowedCategories ? allowedCategories[tier as SelectedTier] : [];
+      const category: RequestCategory =
         current.category && categories.includes(current.category as SelectedCategory)
           ? current.category
           : (categories[0] ?? "");

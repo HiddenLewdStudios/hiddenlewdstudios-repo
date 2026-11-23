@@ -74,9 +74,21 @@ type EmailTemplateVersion = {
   created_at: string;
 };
 
+type DeliverableRecord = {
+  id: string;
+  request_id: string;
+  storage_path: string;
+  original_filename: string;
+  mime_type: string;
+  byte_size: number;
+  created_at: string;
+  signedUrl: string | null;
+};
+
 type RequestDetail = {
   characters: CharacterRecord[];
   references: ReferenceRecord[];
+  deliverables: DeliverableRecord[];
   statusHistory: StatusRecord[];
   customerUpdates: CustomerUpdateRecord[];
   internalNotes: InternalNoteRecord[];
@@ -149,6 +161,8 @@ export default function OwnerDashboard() {
   const [dueDate, setDueDate] = useState("");
   const [priority, setPriority] = useState("normal");
   const [isSavingPlanning, setIsSavingPlanning] = useState(false);
+  const [isUploadingDeliverable, setIsUploadingDeliverable] = useState(false);
+  const [deliverableMessage, setDeliverableMessage] = useState("");
   const [page, setPage] = useState(0);
   const [emailTemplates, setEmailTemplates] = useState<EmailTemplateRecord[]>([]);
   const [selectedTemplateKey, setSelectedTemplateKey] = useState<
@@ -324,6 +338,7 @@ export default function OwnerDashboard() {
     const [
       charactersResult,
       referencesResult,
+      deliverablesResult,
       historyResult,
       customerUpdatesResult,
       internalNotesResult,
@@ -338,6 +353,11 @@ export default function OwnerDashboard() {
         .from("request_references")
         .select("request_id, storage_path, original_filename, mime_type, byte_size")
         .eq("request_id", request.id),
+      client
+        .from("request_deliverables")
+        .select("id, request_id, storage_path, original_filename, mime_type, byte_size, created_at")
+        .eq("request_id", request.id)
+        .order("created_at", { ascending: false }),
       client
         .from("request_status_history")
         .select("request_id, status, created_at")
@@ -363,6 +383,7 @@ export default function OwnerDashboard() {
     if (
       charactersResult.error ||
       referencesResult.error ||
+      deliverablesResult.error ||
       historyResult.error ||
       customerUpdatesResult.error ||
       internalNotesResult.error ||
@@ -384,9 +405,21 @@ export default function OwnerDashboard() {
       ),
     );
 
+    const deliverables = await Promise.all(
+      ((deliverablesResult.data ?? []) as Omit<DeliverableRecord, "signedUrl">[]).map(
+        async (deliverable) => {
+          const { data } = await client.storage
+            .from("request-deliverables")
+            .createSignedUrl(deliverable.storage_path, 60 * 60);
+          return { ...deliverable, signedUrl: data?.signedUrl ?? null };
+        },
+      ),
+    );
+
     setSelectedDetail({
       characters: (charactersResult.data ?? []) as CharacterRecord[],
       references,
+      deliverables,
       statusHistory: (historyResult.data ?? []) as StatusRecord[],
       customerUpdates: (customerUpdatesResult.data ?? []) as CustomerUpdateRecord[],
       internalNotes: (internalNotesResult.data ?? []) as InternalNoteRecord[],
@@ -395,6 +428,56 @@ export default function OwnerDashboard() {
     setDueDate(planningResult.data?.due_date ?? "");
     setPriority(planningResult.data?.priority ?? "normal");
     setIsDetailLoading(false);
+  }
+
+  async function handleDeliverableUpload(event: React.ChangeEvent<HTMLInputElement>) {
+    if (!supabase || !selectedRequest || !event.target.files?.length) return;
+    const file = event.target.files[0];
+    setIsUploadingDeliverable(true);
+    setDeliverableMessage("");
+    const extension = file.name.split(".").pop()?.toLowerCase() ?? "bin";
+    const uniqueName = `${Date.now()}-${Math.random().toString(36).substring(2, 9)}.${extension}`;
+    const storagePath = `${selectedRequest.id}/${uniqueName}`;
+
+    const { error: uploadError } = await supabase.storage
+      .from("request-deliverables")
+      .upload(storagePath, file, { contentType: file.type || "application/octet-stream" });
+
+    if (uploadError) {
+      setDeliverableMessage(`Upload failed: ${uploadError.message}`);
+      setIsUploadingDeliverable(false);
+      return;
+    }
+
+    const { error: insertError } = await supabase.from("request_deliverables").insert({
+      request_id: selectedRequest.id,
+      storage_path: storagePath,
+      original_filename: file.name,
+      mime_type: file.type || "application/octet-stream",
+      byte_size: file.size,
+      created_by: user?.id,
+    });
+
+    if (insertError) {
+      await supabase.storage.from("request-deliverables").remove([storagePath]);
+      setDeliverableMessage(`Failed to record deliverable: ${insertError.message}`);
+      setIsUploadingDeliverable(false);
+      return;
+    }
+
+    setDeliverableMessage("Deliverable uploaded successfully.");
+    setIsUploadingDeliverable(false);
+    event.target.value = "";
+    await selectRequest(selectedRequest);
+  }
+
+  async function deleteDeliverable(deliverable: DeliverableRecord) {
+    if (!supabase || !selectedRequest) return;
+    if (!window.confirm(`Delete deliverable "${deliverable.original_filename}"?`)) return;
+    setIsDetailLoading(true);
+    await supabase.storage.from("request-deliverables").remove([deliverable.storage_path]);
+    await supabase.from("request_deliverables").delete().eq("id", deliverable.id);
+    await selectRequest(selectedRequest);
   }
 
   async function addCustomerUpdate() {
@@ -903,6 +986,70 @@ export default function OwnerDashboard() {
                 {selectedRequest.plot && <p>Plot: {selectedRequest.plot}</p>}
                 {selectedRequest.story_briefing && (
                   <p>Story briefing: {selectedRequest.story_briefing}</p>
+                )}
+              </section>
+
+              <section className="request-history-section">
+                <div
+                  style={{
+                    display: "flex",
+                    justifyContent: "space-between",
+                    alignItems: "center",
+                    marginBottom: "0.5rem",
+                  }}
+                >
+                  <h3 style={{ margin: 0 }}>Finished deliverables</h3>
+                  <label className="btn btn-cyan btn-sm" style={{ cursor: "pointer" }}>
+                    {isUploadingDeliverable ? "Uploading…" : "+ Upload Deliverable"}
+                    <input
+                      type="file"
+                      disabled={isUploadingDeliverable}
+                      style={{ display: "none" }}
+                      onChange={handleDeliverableUpload}
+                    />
+                  </label>
+                </div>
+                {deliverableMessage && <p className="field-hint">{deliverableMessage}</p>}
+                {selectedDetail.deliverables.length ? (
+                  <ul className="reference-metadata-list">
+                    {selectedDetail.deliverables.map((deliverable) => (
+                      <li key={deliverable.id} className="deliverable-card">
+                        {deliverable.signedUrl && deliverable.mime_type.startsWith("image/") && (
+                          <img
+                            className="reference-preview"
+                            src={deliverable.signedUrl}
+                            alt={deliverable.original_filename}
+                          />
+                        )}
+                        <span>
+                          <strong>{deliverable.original_filename}</strong> ·{" "}
+                          {formatBytes(deliverable.byte_size)}
+                        </span>
+                        <div style={{ display: "flex", gap: "0.5rem", marginTop: "0.25rem" }}>
+                          {deliverable.signedUrl && (
+                            <a
+                              className="btn btn-outline btn-sm"
+                              href={deliverable.signedUrl}
+                              target="_blank"
+                              rel="noreferrer"
+                              download={deliverable.original_filename}
+                            >
+                              Download
+                            </a>
+                          )}
+                          <button
+                            className="btn btn-outline btn-sm"
+                            type="button"
+                            onClick={() => deleteDeliverable(deliverable)}
+                          >
+                            Delete
+                          </button>
+                        </div>
+                      </li>
+                    ))}
+                  </ul>
+                ) : (
+                  <p>No deliverables uploaded yet for this request.</p>
                 )}
               </section>
 

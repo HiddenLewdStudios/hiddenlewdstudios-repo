@@ -5,4 +5,7 @@ dist/
 .env
 .env.*
 !.env.example
+docs/TODO.md
 *.rar
+skills/
+supabase/snippets/

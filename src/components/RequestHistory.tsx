@@ -49,9 +49,21 @@ type CustomerUpdateRecord = {
   created_at: string;
 };
 
+type DeliverableRecord = {
+  id: string;
+  request_id: string;
+  storage_path: string;
+  original_filename: string;
+  mime_type: string;
+  byte_size: number;
+  created_at: string;
+  signedUrl: string | null;
+};
+
 type RequestDetails = RequestRecord & {
   characters: CharacterRecord[];
   references: ReferenceRecord[];
+  deliverables: DeliverableRecord[];
   statusHistory: StatusRecord[];
   customerUpdates: CustomerUpdateRecord[];
 };
@@ -123,32 +135,45 @@ export default function RequestHistory() {
       }
 
       const requestIds = rows.map((request) => request.id);
-      const [charactersResult, referencesResult, historyResult, customerUpdatesResult] =
-        await Promise.all([
-          client
-            .from("request_characters")
-            .select("request_id, position, character_name, franchise, version_label")
-            .in("request_id", requestIds)
-            .order("position", { ascending: true }),
-          client
-            .from("request_references")
-            .select("request_id, storage_path, original_filename, mime_type, byte_size")
-            .in("request_id", requestIds),
-          client
-            .from("request_status_history")
-            .select("request_id, status, created_at")
-            .in("request_id", requestIds)
-            .order("created_at", { ascending: true }),
-          client
-            .from("request_customer_updates")
-            .select("id, request_id, message, created_at")
-            .in("request_id", requestIds)
-            .order("created_at", { ascending: true }),
-        ]);
+      const [
+        charactersResult,
+        referencesResult,
+        deliverablesResult,
+        historyResult,
+        customerUpdatesResult,
+      ] = await Promise.all([
+        client
+          .from("request_characters")
+          .select("request_id, position, character_name, franchise, version_label")
+          .in("request_id", requestIds)
+          .order("position", { ascending: true }),
+        client
+          .from("request_references")
+          .select("request_id, storage_path, original_filename, mime_type, byte_size")
+          .in("request_id", requestIds),
+        client
+          .from("request_deliverables")
+          .select(
+            "id, request_id, storage_path, original_filename, mime_type, byte_size, created_at",
+          )
+          .in("request_id", requestIds)
+          .order("created_at", { ascending: false }),
+        client
+          .from("request_status_history")
+          .select("request_id, status, created_at")
+          .in("request_id", requestIds)
+          .order("created_at", { ascending: true }),
+        client
+          .from("request_customer_updates")
+          .select("id, request_id, message, created_at")
+          .in("request_id", requestIds)
+          .order("created_at", { ascending: true }),
+      ]);
 
       if (
         charactersResult.error ||
         referencesResult.error ||
+        deliverablesResult.error ||
         historyResult.error ||
         customerUpdatesResult.error
       ) {
@@ -168,6 +193,16 @@ export default function RequestHistory() {
           },
         ),
       );
+      const deliverables = await Promise.all(
+        ((deliverablesResult.data ?? []) as Omit<DeliverableRecord, "signedUrl">[]).map(
+          async (deliverable) => {
+            const { data } = await client.storage
+              .from("request-deliverables")
+              .createSignedUrl(deliverable.storage_path, 60 * 60);
+            return { ...deliverable, signedUrl: data?.signedUrl ?? null };
+          },
+        ),
+      );
       const history = (historyResult.data ?? []) as StatusRecord[];
       const customerUpdates = (customerUpdatesResult.data ?? []) as CustomerUpdateRecord[];
       setRequests(
@@ -175,6 +210,7 @@ export default function RequestHistory() {
           ...request,
           characters: characters.filter((character) => character.request_id === request.id),
           references: references.filter((reference) => reference.request_id === request.id),
+          deliverables: deliverables.filter((deliverable) => deliverable.request_id === request.id),
           statusHistory: history.filter((entry) => entry.request_id === request.id),
           customerUpdates: customerUpdates.filter((entry) => entry.request_id === request.id),
         })),
@@ -367,6 +403,48 @@ export default function RequestHistory() {
               {request.relation ? <p>Relationship: {request.relation}</p> : null}
               {request.plot ? <p>Plot: {request.plot}</p> : null}
               {request.story_briefing ? <p>Story briefing: {request.story_briefing}</p> : null}
+            </section>
+
+            <section className="request-history-section">
+              <h3>Finished deliverables</h3>
+              {request.deliverables.length ? (
+                <ul className="reference-metadata-list">
+                  {request.deliverables.map((deliverable) => (
+                    <li key={deliverable.id} className="deliverable-card">
+                      {deliverable.signedUrl && deliverable.mime_type.startsWith("image/") && (
+                        <img
+                          className="reference-preview"
+                          src={deliverable.signedUrl}
+                          alt={deliverable.original_filename}
+                        />
+                      )}
+                      <span>
+                        <strong>{deliverable.original_filename}</strong> ·{" "}
+                        {formatBytes(deliverable.byte_size)}
+                      </span>
+                      {deliverable.signedUrl && (
+                        <div>
+                          <a
+                            className="btn btn-cyan btn-sm"
+                            href={deliverable.signedUrl}
+                            target="_blank"
+                            rel="noreferrer"
+                            download={deliverable.original_filename}
+                          >
+                            Download
+                          </a>
+                        </div>
+                      )}
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                <p className="field-hint">
+                  {request.status === "completed"
+                    ? "Your request is completed. Deliverables will be available shortly."
+                    : "Deliverable files will appear here for download once the commission is completed."}
+                </p>
+              )}
             </section>
 
             <section className="request-history-section">

@@ -196,6 +196,14 @@ variables, and the test workflow. This stack is separate from the hosted Supabas
 - Email-template data has owner-only RLS, no public Storage access, and no browser-side
   credentials. The Phase 3 database regression suite has 38 passing assertions.
 
+### Sprint 3.9 implementation status
+
+- Finished deliverable access is complete: owners can upload finished artworks, image archives,
+  and story files to the private `request-deliverables` bucket and record them in `request_deliverables`.
+- Customers can securely download finished deliverables with expiring signed URLs from `/requests/`,
+  and owners can review and delete them from `/owner/`.
+- Production owner assignment documentation is available in [Production owner role assignment](./production-owner-role-assignment.md).
+
 ### Phase 3 delivery sequence
 
 1. **Customer history:** add an authenticated `/requests` page that shows only the signed-in

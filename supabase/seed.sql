@@ -27,7 +27,11 @@ insert into auth.users (
   raw_app_meta_data,
   raw_user_meta_data,
   created_at,
-  updated_at
+  updated_at,
+  confirmation_token,
+  recovery_token,
+  email_change_token_new,
+  email_change
 )
 select
   id,
@@ -40,7 +44,11 @@ select
   app_metadata,
   jsonb_build_object('display_name', display_name),
   now(),
-  now()
+  now(),
+  '',
+  '',
+  '',
+  ''
 from local_users
 on conflict (id) do update
 set
@@ -49,6 +57,10 @@ set
   email_confirmed_at = excluded.email_confirmed_at,
   raw_app_meta_data = excluded.raw_app_meta_data,
   raw_user_meta_data = excluded.raw_user_meta_data,
+  confirmation_token = coalesce(excluded.confirmation_token, ''),
+  recovery_token = coalesce(excluded.recovery_token, ''),
+  email_change_token_new = coalesce(excluded.email_change_token_new, ''),
+  email_change = coalesce(excluded.email_change, ''),
   updated_at = excluded.updated_at;
 
 insert into auth.identities (
@@ -98,15 +110,15 @@ values
     '11111111-1111-4111-8111-111111111111'::uuid,
     'Abu (local owner)',
     'Abu',
-    'Patreon',
-    'Owner-local'
+    'SubscribeStar',
+    'Kage'
   ),
   (
     '22222222-2222-4222-8222-222222222222'::uuid,
     'Abu Two (local customer)',
     'Abu Two',
-    'Ko-fi',
-    'Customer-local'
+    'Fanbox',
+    'Chunin'
   )
 on conflict (id) do update
 set

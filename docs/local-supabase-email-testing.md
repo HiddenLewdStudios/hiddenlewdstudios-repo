@@ -36,19 +36,22 @@ Never put a local or hosted secret/service-role key in this file.
 
 ## Local Google and Discord OAuth
 
-The local Auth service reads provider credentials from the ignored supabase/.env file. Add the
-existing development OAuth credentials there; do not put them in the Edge Function environment or
-commit them. npm run supabase:start loads that ignored file before starting Auth.
+The local Auth service reads provider credentials from the ignored `supabase/.env` file. Keep the
+existing `SUPABASE_AUTH_EXTERNAL_GOOGLE_*` and `SUPABASE_AUTH_EXTERNAL_DISCORD_*` variable names
+there; `npm run supabase:start` forwards them under CLI-safe local names before starting Auth. Do
+not put credentials in the Edge Function environment or commit them.
 
-In each provider console, register the local callback URL shown by **Supabase Studio →
-Authentication → Providers**. Google requires a loopback localhost callback for HTTP local
-development, so use the SSH forwarding workflow below when developing remotely.
+In both the Google Cloud OAuth client and Discord OAuth application, register this exact local
+callback URL: `http://localhost:54321/auth/v1/callback`. This is the Supabase Auth callback, not
+the Astro app URL. Google requires loopback localhost for HTTP local development, so use the SSH
+forwarding workflow below when developing remotely. Restart local Supabase after changing
+`supabase/config.toml` or `supabase/.env`.
 
 For the hosted project, enable the same providers in **Supabase Dashboard → Authentication →
 Providers**, keep credentials in the Dashboard only, and copy the hosted callback URL from that
-screen into the matching Google/Discord OAuth application. Also retain the GitHub Pages URL in
-Auth's Site URL and Redirect URLs. Do not hardcode a hosted project URL or client secret in this
-repository.
+screen into the matching Google/Discord OAuth application. This callback is the hosted Supabase
+`/auth/v1/callback` URL, not the GitHub Pages URL. Keep the GitHub Pages URL in Auth's Site URL
+and Redirect URLs. Do not hardcode a hosted project URL or client secret in this repository.
 
 ## Test a flow
 

@@ -7,8 +7,8 @@
     "node": ">=22.23.4"
   },
   "scripts": {
-    "dev": "astro dev --host",
-    "supabase:start": "set -a; [ -f supabase/.env ] && . supabase/.env; set +a; npx --yes supabase@latest start",
+    "dev": "astro dev",
+    "supabase:start": "set -a; [ -f supabase/.env ] && . supabase/.env; set +a; HLS_DISCORD_OAUTH_CLIENT_ID=\"$SUPABASE_AUTH_EXTERNAL_DISCORD_CLIENTID\" HLS_DISCORD_OAUTH_SECRET=\"$SUPABASE_AUTH_EXTERNAL_DISCORD_SECRET\" HLS_GOOGLE_OAUTH_CLIENT_ID=\"$SUPABASE_AUTH_EXTERNAL_GOOGLE_CLIENTID\" HLS_GOOGLE_OAUTH_SECRET=\"$SUPABASE_AUTH_EXTERNAL_GOOGLE_SECRET\" npx --yes supabase@latest start",
     "supabase:reset": "set -a; [ -f supabase/.env ] && . supabase/.env; set +a; npx --yes supabase@latest db reset",
     "build": "astro check && astro build",
     "preview": "astro preview",
