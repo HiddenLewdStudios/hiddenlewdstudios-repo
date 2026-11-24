@@ -9,4 +9,22 @@ export default [
   ...tseslint.configs.recommended,
   reactHooks.configs.flat.recommended,
   ...astro.configs["flat/recommended"],
+  {
+    rules: {
+      "@typescript-eslint/no-unused-vars": [
+        "error",
+        {
+          argsIgnorePattern: "^_",
+          varsIgnorePattern: "^_",
+          caughtErrorsIgnorePattern: "^_",
+        },
+      ],
+    },
+  },
+  {
+    files: ["tests/**/*.{ts,tsx,js,mjs}"],
+    rules: {
+      "@typescript-eslint/no-explicit-any": "off",
+    },
+  },
 ];
