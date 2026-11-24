@@ -1,201 +1,102 @@
-# Agent handoff — 2026-11-19
+# Agent handoff — 2026-11-24
 
 ## Current milestone
 
-Phases 1 through 4 are complete. Phase 5 remains deferred pending payment-processor eligibility.
+Phases 1 through 4 are complete, including production deployment of Phase 4 database migrations, Edge Functions, finished deliverable access, and OAuth provider alignment. Phase 5 remains deferred pending payment-processor eligibility.
 
 ## Completed product work
 
-- Astro/React site with a GitHub Pages deployment workflow and base path
-  `/hiddenlewdstudios-repo/`.
+- Astro/React site configured with static output and verified clean build.
 - Supabase Auth supports password sign-in/sign-up, email magic links, password recovery,
-  session-only sign-in, and visible Google/Discord OAuth entry points. Provider credentials have
-  not been configured.
+  session-only sign-in, and Google/Discord OAuth entry points. Local OAuth callback URL is aligned to
+  `http://localhost:54321/auth/v1/callback` to adhere to provider restrictions against raw IP addresses.
 - Request submission is authenticated and persists a stable request number, form detail, cast,
   initial status, and private JPG/PNG/WebP reference uploads.
 - The `request-references` Storage bucket is private. Customers can only access their own objects.
-- The `send-request-notifications` Edge Function verifies the caller and request ownership. It
+- Finished Deliverable Access (Sprint 3.9):
+  - Dedicated private `request-deliverables` storage bucket and `request_deliverables` database table.
+  - Owners can upload finished artwork, variant files, image packs, and story archives directly from
+    `/owner/` and delete them if needed.
+  - Customers can review and download finished deliverables with one-hour signed URLs from their
+    authenticated `/requests/` history.
+- The `send-request-notifications` Edge Function verifies caller identity and request ownership. It
   sends customer/owner notifications through Resend in production when enabled. Local development
-  sets `MAILPIT_URL=http://inbucket:8025`, so enabled notifications go to Mailpit instead.
-- `/requests/` provides customer history. It uses RLS-filtered reads and uses one-hour signed URLs
-  for private image previews; it does not expose object paths as public URLs.
-- The request page and `/requests/` both provide sign-in flows. The request page displays **My
-  requests** only for signed-in users.
+  routes notifications to Mailpit.
+- Customer history at `/requests/` provides RLS-filtered request tracking, status timelines, customer
+  updates, reference image previews, and finished deliverable downloads using one-hour signed URLs.
+- Owner workspace at `/owner/` provides authenticated, server-verified request management: status
+  transitions, customer-visible updates, internal staff notes, planning (due dates and priorities),
+  client-side pagination (20/page), CSV export, email-template management, and deliverable file uploads.
 - Profiles retain the last submitted supporter nickname, support platform, and Shinobi
-  Registration, which prefill the next request form while remaining editable.
+  Registration, prefilling future requests safely with defensive rank lookups.
 
 ## Applied database migrations
 
-- `20261117194631_phase2_request_intake.sql`
-- `20261118134401_request_notification_deliveries.sql`
-- `20261118164530_remember_profile_request_details.sql`
-- `20261119175904_backfill_profile_request_details.sql`
-- `20261119180911_phase3_owner_authorization.sql`
-- `20261119221851_phase3_request_communications.sql`
-- `20261119224234_phase3_owner_status_transitions.sql`
-- `20261119232152_phase3_request_planning.sql`
-- `20261119235159_phase3_email_templates.sql`
+All 12 migrations are applied and active across local development and the hosted Supabase project (`cwgsfhqrjzuvyuzieoai`):
 
-The latest five Phase 3 migrations are deployed to the hosted project. The earlier profile migrations add and backfill `profiles.last_supporter_nickname`,
-`profiles.last_supporter_platform`, and `profiles.last_shinobi_registration`. They have been
-applied to both local and hosted Supabase.
+1. `20261117194631_phase2_request_intake.sql`
+2. `20261118134401_request_notification_deliveries.sql`
+3. `20261118164530_remember_profile_request_details.sql`
+4. `20261119175904_backfill_profile_request_details.sql`
+5. `20261119180911_phase3_owner_authorization.sql`
+6. `20261119221851_phase3_request_communications.sql`
+7. `20261119224234_phase3_owner_status_transitions.sql`
+8. `20261119232152_phase3_request_planning.sql`
+9. `20261119235159_phase3_email_templates.sql`
+10. `20261120092326_phase4_character_search_cache.sql`
+11. `20261120120000_acdb_request_interval.sql`
+12. `20261123150000_request_deliverables.sql`
 
 ## Required hosted Dashboard configuration
 
-Assign the intended production owner account with the SQL in
-[Owner authorization](./owner-authorization.md), then sign out and back in (or refresh the
-token). No production account was promoted automatically.
+1. Assign the production owner account with the SQL documented in
+   [Production owner role assignment](./production-owner-role-assignment.md). This modifies
+   `auth.users.raw_app_meta_data.role` (never `user_metadata`). Sign out and back in (or refresh the
+   session token) after running the query.
+2. Hosted Edge Functions:
+   - `send-request-notifications` deployed and configured with `NOTIFICATION_DELIVERY_ENABLED`,
+     `RESEND_API_KEY`, `OWNER_NOTIFICATION_EMAIL`, and `EMAIL_FROM`.
+   - `character-search` deployed and configured with secret `ACDB_EXTERNAL_ENABLED=true`.
 
 ## Local development
 
 1. Start the local stack with `npm run supabase:start`.
 2. Start Astro with `npm run dev`.
-3. Use `http://127.0.0.1:4321/hiddenlewdstudios-repo/`.
-4. Mailpit is available at `http://127.0.0.1:54324`.
-5. For remote development, use the SSH port-forwarding command in `README.md` and browse the same
-   loopback URL.
+3. Mailpit is available at `http://127.0.0.1:54324`.
+4. Run `npm run supabase:reset` to recreate disposable `HLS-DEV-*` request fixtures.
+   `abu@gmail.com` has owner privileges; `abu2@gmail.com` is a customer. Both use
+   `ChangeMe!LocalOnly2026`.
 
-`supabase/functions/.env` is ignored. With `NOTIFICATION_DELIVERY_ENABLED=true`, local request
-notifications go to Mailpit, not Resend. The function’s local Mailpit endpoint comes from
-`[edge_runtime.secrets]` in `supabase/config.toml`; do not add that setting to hosted function
-secrets.
-
-`npm run supabase:reset` recreates disposable `HLS-DEV-*` request fixtures spanning accepted,
-in-progress, completed, and cancelled work. `abu@gmail.com` has local server-managed owner app
-metadata; `abu2@gmail.com` is the local customer. Both use `ChangeMe!LocalOnly2026`; fixtures
-include one customer-visible update and one internal note. This data is local only.
-
-## Hosted configuration
-
-- Frontend Actions variables: `PUBLIC_SUPABASE_URL` and `PUBLIC_SUPABASE_PUBLISHABLE_KEY`.
-- Hosted function secrets: `NOTIFICATION_DELIVERY_ENABLED`, `RESEND_API_KEY`,
-  `OWNER_NOTIFICATION_EMAIL`, and `EMAIL_FROM`.
-- The notification Edge Function is deployed at version 5.
-- Local Google and Discord OAuth credentials belong only in ignored `supabase/.env`; the start
-  script loads them into local Auth. Both hosted providers are enabled and their authorization
-  endpoints have been checked. The provider consoles must retain the callback URLs shown in the
-  corresponding Supabase Auth provider settings.
-- Do not add hosted project URLs, service-role keys, Resend keys, or OAuth client secrets to tracked
-  files.
-
-## Phase 4 — character search — Complete
+## Phase 4 — ACDB Character Search — Complete
 
 - Authenticated character autocomplete uses `character-search`, a JWT-required Edge Function.
   Browser traffic never calls ACDB directly. Anonymous users and local development retain the
   local catalog fallback.
 - `ACDB_EXTERNAL_ENABLED` is explicitly `false` in local Edge Runtime configuration. Production
-  has the feature flag enabled only after the database migrations, handler fixture suite, and
-  isolated Postgres limiter test passed. Do not set this flag in local `.env` files.
-- The proxy has a private cache, same-query cache-miss coalescing, a service-role-only atomic
-  global one-request-per-second permit, timeout, no redirects, no automatic retries, and a shared
-  failure cooldown honoring `Retry-After` when supplied.
-- UI keeps ACDB source links plus visible ACDB/ODbL attribution. ACDB data remains a suggestion,
-  not an adult-content eligibility decision.
-- `npm run test:acdb` is network-isolated. `tests/acdb/limiter.sh` must run only against fresh,
-  disposable Postgres with `20261120120000_acdb_request_interval.sql` applied. Never send test or
-  CI traffic to ACDB.
-- Current live rule recheck: the API page confirms the character-query endpoint; the public terms
-  prohibit scrapers/scanners. The Wiki access-rules page was unavailable during the 2026-11-20
-  recheck, so use the dated archive reference and recheck it again before changing live behavior.
+  has the feature flag enabled as a hosted secret (`ACDB_EXTERNAL_ENABLED=true`).
+- The proxy has a private database cache (`character_search_cache`), same-query cache-miss
+  coalescing (`character_search_inflight`), a service-role-only atomic global one-request-per-second
+  permit (`reserve_acdb_request`), timeout, no redirects, no automatic retries, and a shared
+  failure cooldown honoring `Retry-After`.
+- ACDB source links and Open Database License (ODbL) attributions are prominently displayed.
+- Network-isolated tests pass via `npm run test:acdb`.
 
-## Required hosted configuration
+## Sprint 3.9 — Finished Deliverable Access — Complete
 
-- Production `character-search` is deployed with JWT verification and requires
-  `ACDB_EXTERNAL_ENABLED=true` as a hosted Edge Function secret. Never commit that value together
-  with hosted URLs, service-role keys, OAuth credentials, or delivery-provider credentials.
-- Set or inspect that production flag in the Supabase Dashboard. The local
-  `[edge_runtime.secrets]` block intentionally contains `MAILPIT_URL`; do not let a CLI secret
-  command sync that local-only value to production.
-- The hosted security advisor continues to report only its pre-existing recommendation to enable
-  Supabase Auth leaked-password protection. Enable it in the Auth Dashboard before a public launch.
-- Optional Discord and supporter-platform account integrations are intentionally deferred. Do not
-  add provider credentials without a separate permission and privacy review.
-
-## Sprint 3.2 — owner authorization and owner-only policies — Complete
-
-- Owner authorization uses the server-managed `auth.users.raw_app_meta_data.role` claim only;
-  `user_metadata` is never used for authorization.
-- Narrow, read-only owner RLS policies allow an authenticated `owner` to read requests, request
-  characters, reference metadata, status history, and existing reference objects in the private
-  `request-references` bucket. Customer ownership policies remain unchanged.
-- The reference bucket remains private. No Storage object is public and no owner write/delete
-  policy was added.
-- The footer shows **Owner workspace** only after the browser verifies the authenticated user with
-  `auth.getUser()` and checks server-managed app metadata. RLS remains the access authority.
-- The owner workspace is an authorization-checked placeholder only; no dashboard, status editor,
-  customer-update editor, or staff-note editor has been built. Customer-visible updates and
-  internal notes must be modeled separately first.
-- See [Owner authorization](./owner-authorization.md) for the required Dashboard SQL to grant or
-  revoke the role, including the required owner token refresh.
-
-## Sprint 3.3 — read-only owner request dashboard — Complete
-
-- `/owner/` now provides a server-verified, read-only owner workspace. It lists all RLS-authorized
-  requests, supports request-number/supporter/platform/email search and status filtering, and
-  opens a selected request's full detail.
-- Detail loads cast, brief, customer contact fields, status history, reference metadata, and
-  one-hour signed previews for private reference images only after selection. It never exposes a
-  public Storage URL.
-- The dashboard performs no mutations: no status changes, customer updates, staff notes, due dates,
-  priorities, exports, or email-template editing are present.
-- The owner authorization pgTAP suite was made fixture-specific so it remains reliable when the
-  local database contains other requests. It continues to assert customer isolation, rejection of
-  `user_metadata` escalation, owner reads, and the private bucket setting.
-
-## Sprint 3.4 — customer updates and internal notes — Complete
-
-- Customer-visible updates and internal notes now use separate immutable tables, constraints, and
-  RLS policies. Customer updates are readable by the request owner and owners; internal notes are
-  readable only by owners. Both creation policies require server-managed owner app metadata and
-  `created_by = auth.uid()`.
-- Owners can post either type from a selected request in `/owner/`. `/requests/` shows only the
-  customer-visible update timeline; internal notes are never queried or rendered there.
-- The communications pgTAP suite covers customer read access, denial of customer creation,
-  rejection of `user_metadata` escalation, and owner reads/creates for both streams.
-
-## Sprint 3.5 — owner status controls and audit history — Complete
-
-- Owners can change a request only along these server-enforced transitions: `submitted` →
-  `in_review`/`cancelled`; `in_review` → `accepted`/`cancelled`; `accepted` →
-  `in_progress`/`cancelled`; and `in_progress` → `completed`/`cancelled`. `completed` and
-  `cancelled` are terminal.
-- The `requests` table now grants authenticated users update permission only for the `status`
-  column, and an owner-only RLS policy plus a protected trigger validates every change. A permitted
-  change creates an immutable `request_status_history` record with the authenticated owner ID.
-- `/owner/` offers only valid next-status choices. The trigger remains authoritative even if a
-  client request is manipulated.
-- The status pgTAP suite proves customer and `user_metadata` denial, valid owner changes, history
-  attribution, invalid-transition rejection, and rejection of non-status request updates.
-
-## Sprint 3.6 — request planning — Complete
-
-- Owners can set a due date and low/normal/high/urgent priority for each request. Planning rows are
-  owner-only through RLS and are not returned to customers.
-- Each planning change records its authenticated owner and update time. The planning pgTAP suite
-  proves owner access and customer denial.
-
-## Sprint 3.7 — owner pagination and export — Complete
-
-- The owner list paginates client-side at 20 filtered requests per page and exposes a filtered CSV
-  export for operational fields only. The export excludes reference object paths and signed URLs.
-- The hosted Phase 3 migration set is deployed, and the security advisor reports no findings.
-
-## Deferred item
-
-Post-release: allow sign-in by supporter nickname as well as email. First make the canonical
-nickname case-insensitively unique, resolve existing duplicates, and perform nickname-to-account
-resolution only in a protected server-side path.
+- Owners can upload finished art files to the private `request-deliverables` bucket and record them in
+  `request_deliverables`.
+- Customers can access and download finished artwork securely with one-hour signed URLs from
+  `/requests/`.
+- Owners can inspect, download, and delete deliverables from the request detail in `/owner/`.
 
 ## Verification baseline
 
-Run:
-
 ```sh
-npm run lint
 npm run format:check
+npm run lint
+npm run check
+npm run test:acdb
 npm run build
-git diff --check
 ```
 
-The build currently has one pre-existing hint: `document.execCommand("copy")` is deprecated in the
-clipboard fallback in `src/components/RequestForm.tsx`. It has no build errors or warnings.
+The build is completely clean (0 errors, 0 warnings, 1 standard deprecation hint for the clipboard copy fallback in `RequestForm.tsx`).
