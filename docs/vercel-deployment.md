@@ -92,7 +92,10 @@ _(Alternatively, `VERCEL_ORG_ID` and `VERCEL_PROJECT_ID` can be placed in Reposi
 
 ## 4. Supabase Auth Configuration for Both Environments
 
-Configure **Authentication** → **URL Configuration** in both Supabase projects:
+Configure **Authentication** → **URL Configuration** in both Supabase projects.
+
+> [!IMPORTANT]
+> **Supabase `Site URL` does not allow wildcards** (`*`). It must be a specific, fully-qualified domain. Wildcards are only accepted under **Redirect URLs (Allow list)**.
 
 ### Production (`hiddenlewdstudios-prod`):
 
@@ -103,12 +106,13 @@ Configure **Authentication** → **URL Configuration** in both Supabase projects
 
 ### Staging (`hiddenlewdstudios-stage`):
 
-- **Site URL:** `https://hiddenlewdstudios-git-staging-*.vercel.app` (or your staging alias / custom domain)
-- **Redirect URLs:**
+- **Site URL:** Exact staging branch URL without wildcards:
+  `https://<project-name>-git-staging-<username-or-team>.vercel.app` (or custom staging subdomain if configured).
+- **Redirect URLs (Wildcards allowed):**
   - `http://localhost:4321/**`
+  - `https://*-<username-or-team>.vercel.app/**`
   - `https://*-hiddenlewdstudios-projects.vercel.app/**`
-  - `https://hiddenlewdstudios-git-staging-*.vercel.app/**`
-  - Any staging domain configured on Vercel
+  - `https://<project-name>-git-staging-<username-or-team>.vercel.app/**`
 
 ---
 

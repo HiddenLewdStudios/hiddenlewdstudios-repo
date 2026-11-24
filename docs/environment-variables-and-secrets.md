@@ -49,9 +49,12 @@ _(Optional)_ Under **Repository variables** (`Variables` tab):
 
 For each Supabase project, navigate to: **[Supabase Dashboard](https://supabase.com/dashboard)** → Select Project → **Authentication** → **URL Configuration**
 
+> [!IMPORTANT]
+> **Supabase `Site URL` does not allow wildcards** (`*`). It must be a single, exact, fully-qualified URL. Wildcards are only supported in **Redirect URLs (Allow list)**.
+
 ### A. Production Project (`hiddenlewdstudios-prod`)
 
-- **Site URL:**
+- **Site URL:** _(Exact production domain, no wildcards)_
   ```text
   https://hiddenlewdstudios.vercel.app
   ```
@@ -63,17 +66,18 @@ For each Supabase project, navigate to: **[Supabase Dashboard](https://supabase.
 
 ### B. Staging Project (`hiddenlewdstudios-stage`)
 
-- **Site URL:**
+- **Site URL:** _(Exact staging branch URL, no wildcards)_
   ```text
-  https://hiddenlewdstudios-git-staging-*.vercel.app
+  https://<project-name>-git-staging-<username-or-team>.vercel.app
   ```
-- **Redirect URLs (Allow list):**
+  _(Or your staging custom domain / alias if assigned in Vercel, e.g. `https://staging.hiddenlewdstudios.com`)_
+- **Redirect URLs (Allow list):** _(Wildcards ARE supported here)_
   ```text
   http://localhost:4321/**
+  https://*-<username-or-team>.vercel.app/**
   https://*-hiddenlewdstudios-projects.vercel.app/**
-  https://hiddenlewdstudios-git-staging-*.vercel.app/**
+  https://<project-name>-git-staging-<username-or-team>.vercel.app/**
   ```
-  _(Add your staging custom domain or alias here if you configure one on Vercel)._
 
 ---
 
@@ -90,7 +94,7 @@ npx supabase secrets set --project-ref cwgsfhqrjzuvyuzieoai \
 # Staging
 npx supabase secrets set --project-ref <staging-ref> \
   RESEND_API_KEY="re_..." \
-  SITE_URL="https://hiddenlewdstudios-git-staging-*.vercel.app"
+  SITE_URL="https://<project-name>-git-staging-<username-or-team>.vercel.app"
 ```
 
 ---
