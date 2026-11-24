@@ -66,14 +66,14 @@ In Vercel under **Project Settings** → **Environment Variables**, configure th
 > [!IMPORTANT]
 >
 > - **Production scope:** Applied automatically to builds from `main`.
-> - **Preview scope:** Applied automatically to builds from `staging` (and preview pull requests).
+> - **Preview scope:** Applied automatically to builds from `staging`.
 > - **Edge Function Secrets:** Secrets such as `SUPABASE_SERVICE_ROLE_KEY`, `RESEND_API_KEY`, and OAuth client secrets belong **only** inside Supabase Edge Functions (`supabase secrets set ...`), never inside Vercel.
 
 ---
 
 ## 3. GitHub Actions CI/CD Secrets
 
-The GitHub Actions workflow (`.github/workflows/ci.yml`) runs the ACDB compliance gate and code verification, then automatically deploys:
+The GitHub Actions workflow (`.github/workflows/ci.yml`) triggers **only on pushes to `main` and `staging`**. It executes the ACDB compliance gate and code verification, then automatically deploys:
 
 - **Pushes to `main`** $\rightarrow$ deployed to Vercel **Production** (`--prod`).
 - **Pushes to `staging`** $\rightarrow$ deployed to Vercel **Staging / Preview**.
@@ -123,3 +123,17 @@ The repository includes [vercel.json](../vercel.json) configuring:
 - `cleanUrls: true` (clean routes without `.html`)
 - `trailingSlash: true` (consistent directory-based routing)
 - Security HTTP response headers (`X-Content-Type-Options: nosniff`, `X-Frame-Options: DENY`, `Referrer-Policy: strict-origin-when-cross-origin`).
+
+---
+
+## 6. Disabling Unwanted Vercel Automatic PR Previews
+
+By default, Vercel automatically deploys every pull request and feature branch pushed to GitHub. If you only want deployments to happen on `main` and `staging`:
+
+1. Go to **Vercel Dashboard** → your project → **Settings** → **Git**.
+2. Scroll down to **Ignored Build Step**.
+3. Enter the following shell command:
+   ```bash
+   if [ "$VERCEL_GIT_COMMIT_REF" = "main" ] || [ "$VERCEL_GIT_COMMIT_REF" = "staging" ]; then exit 1; else exit 0; fi
+   ```
+   _(In Vercel, `exit 1` indicates "proceed with build" and `exit 0` indicates "skip/ignore build")._
