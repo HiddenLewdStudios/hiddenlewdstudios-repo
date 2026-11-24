@@ -2,6 +2,9 @@
 
 This document describes how to deploy Hidden Lewd Studios on [Vercel](https://vercel.com/) using **Option 1: Single Vercel Project with Dual Environments (Production & Staging)**, automated via GitHub Actions.
 
+> [!TIP]
+> For a quick step-by-step checklist of all environment variables and secrets, see [Environment Variables & Secrets Checklist](./environment-variables-and-secrets.md).
+
 ---
 
 ## Architecture Overview
