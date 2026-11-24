@@ -171,14 +171,16 @@ max_indexes = 5
 enabled = true
 # The base URL of your website. Used as an allow-list for redirects and for constructing URLs used
 # in emails.
-site_url = "http://127.0.0.1:4321/hiddenlewdstudios-repo/"
+site_url = "http://localhost:4321/"
 # The public URL that Auth serves on. Google and Discord OAuth clients register this exact callback
 # as `http://localhost:54321/auth/v1/callback`; do not replace localhost with a LAN address.
 external_url = "http://localhost:54321/auth/v1"
 # A list of *exact* URLs that auth providers are permitted to redirect to post authentication.
 additional_redirect_urls = [
-  "http://localhost:4321/hiddenlewdstudios-repo/",
-  "http://127.0.0.1:4321/hiddenlewdstudios-repo/",
+  "http://localhost:4321/",
+  "http://127.0.0.1:4321/",
+  "https://hiddenlewdstudios.vercel.app/",
+  "https://hiddenlewdstudios-repo.vercel.app/",
 ]
 # How long tokens are valid for, in seconds. Defaults to 3600 (1 hour), maximum 604,800 (1 week).
 jwt_expiry = 3600
