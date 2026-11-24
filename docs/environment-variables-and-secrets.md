@@ -4,6 +4,21 @@ This document is the definitive checklist for configuring environment variables,
 
 ---
 
+## 0. Local Single Sources of Truth
+
+All environment secrets and configuration values are maintained locally in three git-ignored files at the repository root:
+
+| Environment    | Local File                                                       | Purpose                                                                                                |
+| -------------- | ---------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------ |
+| **Production** | [`.env`](file:///home/abu/workspace/mr-chungus/.env)             | Canonical secrets for `hiddenlewdstudios-prod`, production Vercel config, and Edge Functions.          |
+| **Staging**    | [`.env.stage`](file:///home/abu/workspace/mr-chungus/.env.stage) | Canonical secrets for `hiddenlewdstudios-stage`, staging Vercel preview config, and Edge Functions.    |
+| **Local Dev**  | [`.env.local`](file:///home/abu/workspace/mr-chungus/.env.local) | Canonical secrets for local Docker Supabase (`npm run supabase:start`), test OAuth IDs, and Astro dev. |
+
+> [!NOTE]
+> All `.env`, `.env.local`, and `.env.stage` files are strictly included in `.gitignore` to prevent any secrets from being committed.
+
+---
+
 ## 1. Vercel Project Configuration
 
 Navigate to: **[Vercel Dashboard](https://vercel.com/dashboard)** → Select Project → **Settings** → **Environment Variables**
@@ -21,7 +36,7 @@ When adding environment variables in Vercel, select the corresponding environmen
 > [!NOTE]
 >
 > - Builds triggered by changes to `main` inherit the **Production** variables.
-> - Builds triggered by changes to `staging` (and preview pull requests) inherit the **Preview** variables.
+> - Builds triggered by changes to `staging` inherit the **Preview** variables.
 > - Do **not** store backend secrets (`SUPABASE_SERVICE_ROLE_KEY`, `RESEND_API_KEY`) on Vercel. They belong strictly inside Supabase Edge Functions.
 
 ---
@@ -37,11 +52,6 @@ Under **Repository secrets**, click **New repository secret** and add the follow
 | `VERCEL_TOKEN`      | Personal access token with deploy permissions | [Vercel Account Tokens](https://vercel.com/account/tokens) → Create token with scope for your account/team.     |
 | `VERCEL_ORG_ID`     | Vercel team/account ID                        | In your Vercel team settings URL or run `npx vercel link` locally and inspect `.vercel/project.json` (`orgId`). |
 | `VERCEL_PROJECT_ID` | Vercel project ID                             | In **Vercel Project Settings** → **General** → **Project ID** (or in `.vercel/project.json` under `projectId`). |
-
-_(Optional)_ Under **Repository variables** (`Variables` tab):
-
-- `PUBLIC_SUPABASE_URL`: (Optional placeholder used as fallback during PR verification builds, e.g. `https://placeholder.supabase.co`).
-- `PUBLIC_SUPABASE_PUBLISHABLE_KEY`: (Optional placeholder string).
 
 ---
 
@@ -68,22 +78,40 @@ For each Supabase project, navigate to: **[Supabase Dashboard](https://supabase.
 
 - **Site URL:** _(Exact staging branch URL, no wildcards)_
   ```text
-  https://<project-name>-git-staging-<username-or-team>.vercel.app
+  https://hidden-lewd-studios-cu1zs72n3-guirosaalves.vercel.app
   ```
-  _(Or your staging custom domain / alias if assigned in Vercel, e.g. `https://staging.hiddenlewdstudios.com`)_
+  _(Or your permanent staging branch alias / custom domain if configured)._
 - **Redirect URLs (Allow list):** _(Wildcards ARE supported here)_
   ```text
   http://localhost:4321/**
-  https://*-<username-or-team>.vercel.app/**
+  https://*-guirosaalves.vercel.app/**
   https://*-hiddenlewdstudios-projects.vercel.app/**
-  https://<project-name>-git-staging-<username-or-team>.vercel.app/**
+  https://hidden-lewd-studios-*-guirosaalves.vercel.app/**
   ```
 
 ---
 
-## 4. Supabase Hosted Edge Functions Secrets (Optional / Backend)
+## 4. Seeding the Staging Database
 
-If deploying the hosted Edge Functions (`send-request-notifications` and `character-search`) on your Supabase projects, set the secrets via the Supabase CLI:
+The staging database seed script is stored at [`supabase/seed.stage.sql`](file:///home/abu/workspace/mr-chungus/supabase/seed.stage.sql). It mirrors local seed data with staging-appropriate fixtures.
+
+### Option A: Supabase Dashboard (Fastest)
+
+1. Open the [Supabase Dashboard](https://supabase.com/dashboard) and select `hiddenlewdstudios-stage`.
+2. Navigate to **SQL Editor** → **New Query**.
+3. Copy the contents of [`supabase/seed.stage.sql`](file:///home/abu/workspace/mr-chungus/supabase/seed.stage.sql), paste them, and click **Run**.
+
+### Option B: Supabase CLI
+
+```bash
+npx supabase db execute --project-ref <your-stage-ref> --file supabase/seed.stage.sql
+```
+
+---
+
+## 5. Supabase Hosted Edge Functions Secrets
+
+If deploying hosted Edge Functions (`send-request-notifications` and `character-search`) on your Supabase projects, set the secrets via the Supabase CLI:
 
 ```bash
 # Production
@@ -94,19 +122,5 @@ npx supabase secrets set --project-ref cwgsfhqrjzuvyuzieoai \
 # Staging
 npx supabase secrets set --project-ref <staging-ref> \
   RESEND_API_KEY="re_..." \
-  SITE_URL="https://<project-name>-git-staging-<username-or-team>.vercel.app"
+  SITE_URL="https://hidden-lewd-studios-cu1zs72n3-guirosaalves.vercel.app"
 ```
-
----
-
-## 5. Local Development Environment (`.env.local`)
-
-For local offline development with the local Supabase stack (`npm run supabase:start`):
-
-```bash
-# .env.local
-PUBLIC_SUPABASE_URL=http://localhost:54321
-PUBLIC_SUPABASE_PUBLISHABLE_KEY=sb_publishable_...
-```
-
-For OAuth testing locally, see [supabase/.env](file:///home/abu/workspace/mr-chungus/supabase/.env) and [docs/local-supabase-email-testing.md](file:///home/abu/workspace/mr-chungus/docs/local-supabase-email-testing.md).

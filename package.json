@@ -8,8 +8,9 @@
   },
   "scripts": {
     "dev": "astro dev",
-    "supabase:start": "set -a; [ -f supabase/.env ] && . supabase/.env; set +a; HLS_DISCORD_OAUTH_CLIENT_ID=\"$SUPABASE_AUTH_EXTERNAL_DISCORD_CLIENTID\" HLS_DISCORD_OAUTH_SECRET=\"$SUPABASE_AUTH_EXTERNAL_DISCORD_SECRET\" HLS_GOOGLE_OAUTH_CLIENT_ID=\"$SUPABASE_AUTH_EXTERNAL_GOOGLE_CLIENTID\" HLS_GOOGLE_OAUTH_SECRET=\"$SUPABASE_AUTH_EXTERNAL_GOOGLE_SECRET\" npx --yes supabase@latest start",
-    "supabase:reset": "set -a; [ -f supabase/.env ] && . supabase/.env; set +a; npx --yes supabase@latest db reset",
+    "supabase:start": "set -a; [ -f .env.local ] && . .env.local; [ -f supabase/.env ] && . supabase/.env; set +a; HLS_DISCORD_OAUTH_CLIENT_ID=\"$SUPABASE_AUTH_EXTERNAL_DISCORD_CLIENTID\" HLS_DISCORD_OAUTH_SECRET=\"$SUPABASE_AUTH_EXTERNAL_DISCORD_SECRET\" HLS_GOOGLE_OAUTH_CLIENT_ID=\"$SUPABASE_AUTH_EXTERNAL_GOOGLE_CLIENTID\" HLS_GOOGLE_OAUTH_SECRET=\"$SUPABASE_AUTH_EXTERNAL_GOOGLE_SECRET\" npx --yes supabase@latest start",
+    "supabase:reset": "set -a; [ -f .env.local ] && . .env.local; [ -f supabase/.env ] && . supabase/.env; set +a; npx --yes supabase@latest db reset",
+    "supabase:seed:stage": "set -a; [ -f .env.stage ] && . .env.stage; set +a; npx --yes supabase@latest db execute --file supabase/seed.stage.sql",
     "build": "astro check && astro build",
     "preview": "astro preview",
     "check": "astro check",
