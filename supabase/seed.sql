@@ -244,6 +244,50 @@ set
   franchise = excluded.franchise,
   version_label = excluded.version_label;
 
+-- Reference images attached to requests
+insert into public.request_references (request_id, storage_path, original_filename, mime_type, byte_size)
+values
+  (
+    '00000000-0000-4000-8000-000000000101'::uuid,
+    '22222222-2222-4222-8222-222222222222/00000000-0000-4000-8000-000000000101/library-reading-reference.webp',
+    'library-reading-reference.webp',
+    'image/webp',
+    342010
+  ),
+  (
+    '00000000-0000-4000-8000-000000000102'::uuid,
+    '22222222-2222-4222-8222-222222222222/00000000-0000-4000-8000-000000000102/rain-outfit-palette.png',
+    'rain-outfit-palette.png',
+    'image/png',
+    528490
+  ),
+  (
+    '00000000-0000-4000-8000-000000000102'::uuid,
+    '22222222-2222-4222-8222-222222222222/00000000-0000-4000-8000-000000000102/city-street-moodboard.jpg',
+    'city-street-moodboard.jpg',
+    'image/jpeg',
+    812030
+  ),
+  (
+    '00000000-0000-4000-8000-000000000103'::uuid,
+    '22222222-2222-4222-8222-222222222222/00000000-0000-4000-8000-000000000103/character-portrait-angle.jpg',
+    'character-portrait-angle.jpg',
+    'image/jpeg',
+    295100
+  ),
+  (
+    '00000000-0000-4000-8000-000000000104'::uuid,
+    '22222222-2222-4222-8222-222222222222/00000000-0000-4000-8000-000000000104/cafe-setting-sample.png',
+    'cafe-setting-sample.png',
+    'image/png',
+    419200
+  )
+on conflict (storage_path) do update
+set
+  original_filename = excluded.original_filename,
+  mime_type = excluded.mime_type,
+  byte_size = excluded.byte_size;
+
 insert into public.request_customer_updates (request_id, message, created_by, created_at)
 values
   (

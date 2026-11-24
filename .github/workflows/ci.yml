@@ -32,6 +32,8 @@ jobs:
         run: npm run lint
       - name: Astro & TypeScript check
         run: npm run check
+      - name: Run test suite
+        run: npm test
       - name: Build site
         run: npm run build
         env:
