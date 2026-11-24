@@ -91,21 +91,37 @@ For each Supabase project, navigate to: **[Supabase Dashboard](https://supabase.
 
 ---
 
-## 4. Seeding the Staging Database
+## 4. Database Seeding (Local & Staging)
 
-The staging database seed script is stored at [`supabase/seed.stage.sql`](file:///home/abu/workspace/mr-chungus/supabase/seed.stage.sql). It mirrors local seed data with staging-appropriate fixtures.
+Both seed files contain realistic fixtures (test accounts, sample requests across various lifecycle statuses, character assignments, attached image reference metadata, customer updates, and planning records).
 
-### Option A: Supabase Dashboard (Fastest)
+### Local Development Database
 
-1. Open the [Supabase Dashboard](https://supabase.com/dashboard) and select `hiddenlewdstudios-stage`.
-2. Navigate to **SQL Editor** → **New Query**.
-3. Copy the contents of [`supabase/seed.stage.sql`](file:///home/abu/workspace/mr-chungus/supabase/seed.stage.sql), paste them, and click **Run**.
-
-### Option B: Supabase CLI
+Run:
 
 ```bash
-npx supabase db execute --project-ref <your-stage-ref> --file supabase/seed.stage.sql
+npm run supabase:reset
 ```
+
+This applies all migrations and populates the database using [`supabase/seed.sql`](file:///home/abu/workspace/mr-chungus/supabase/seed.sql).
+
+### Staging Cloud Database (`hiddenlewdstudios-stage`)
+
+The staging seed script is located at [`supabase/seed.stage.sql`](file:///home/abu/workspace/mr-chungus/supabase/seed.stage.sql).
+
+- **Method A (Supabase Dashboard - Easiest):**
+  1. Go to [Supabase Dashboard](https://supabase.com/dashboard) → Select `hiddenlewdstudios-stage`.
+  2. Open **SQL Editor** → **New Query**.
+  3. Paste the contents of [`supabase/seed.stage.sql`](file:///home/abu/workspace/mr-chungus/supabase/seed.stage.sql) and click **Run**.
+- **Method B (Supabase CLI):**
+  ```bash
+  npx supabase db execute --project-ref <your-stage-ref> --file supabase/seed.stage.sql
+  ```
+
+### Test Accounts Seeded
+
+- **Owner**: `abu@gmail.com` / Password: `ChangeMe!LocalOnly2026` (has `role: 'owner'`)
+- **Customer**: `abu2@gmail.com` / Password: `ChangeMe!LocalOnly2026`
 
 ---
 

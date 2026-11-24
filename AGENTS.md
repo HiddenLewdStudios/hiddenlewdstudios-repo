@@ -1,3 +1,8 @@
+# Branching & Worktree Rules
+
+- **Feature branches only**: Agents should only work on feature branches (`feat/...` or `feature/...`) that will eventually merge into `staging`. Never commit directly to `main` or `staging`.
+- **Git worktrees**: Agents should use git worktrees whenever necessary and get rid of them whenever they are not in use unless told otherwise.
+
 # ACDB integration
 
 Before any live ACDB use, test, or deployment, all repository tests must pass on the exact revision and the ACDB integration must receive careful review. A green suite alone does not authorize live traffic. Keep routine development, CI, and regression tests offline from ACDB. Use fixtures for responses and disposable local Postgres for the global limiter.
@@ -46,8 +51,7 @@ If any check fails, resolve the underlying cause before reporting the task as do
 
 ### 3. Edge function tests (`tests/edge-functions/` and `tests/acdb/`)
 
-- Test Supabase Edge Functions in network-isolated Node VM modules (`--experimental-vm-modules`) using `node:test`.
-- Mock all external dependencies (Supabase clients, Resend email dispatch, Mailpit API, upstream ACDB HTTP requests) via synthetic modules and fixture transports.
+- Test Supabase Edge Functions in network-isolated Node VM modules (`--experimental-vm-modules`) using `node:test`.\n- Mock all external dependencies (Supabase clients, Resend email dispatch, Mailpit API, upstream ACDB HTTP requests) via synthetic modules and fixture transports.
 - Test HTTP methods (rejection of non-allowed verbs), CORS OPTIONS preflight headers, authentication validation (missing/invalid JWTs), parameter validation, idempotency, and error handling.
 - Run via:
   ```sh
