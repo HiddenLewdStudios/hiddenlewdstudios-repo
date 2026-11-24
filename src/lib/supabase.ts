@@ -1,9 +1,37 @@
 import { createClient } from "@supabase/supabase-js";
 
-const supabaseUrl = import.meta.env.PUBLIC_SUPABASE_URL;
-const supabasePublishableKey = import.meta.env.PUBLIC_SUPABASE_PUBLISHABLE_KEY;
+function normalizeSupabaseUrl(url?: string): string | undefined {
+  if (!url) return undefined;
+  const trimmed = url.trim().replace(/^["']|["']$/g, "");
+  if (!trimmed) return undefined;
+  if (/^https?:\/\//i.test(trimmed)) return trimmed;
+  if (/^[a-z0-9-]+\.supabase\.co/i.test(trimmed) || /^[a-z0-9.-]+(:\d+)?/i.test(trimmed)) {
+    return trimmed.startsWith("localhost") || trimmed.startsWith("127.0.0.1")
+      ? `http://${trimmed}`
+      : `https://${trimmed}`;
+  }
+  return trimmed;
+}
 
-export const isSupabaseConfigured = Boolean(supabaseUrl && supabasePublishableKey);
+function isValidHttpUrl(url?: string): boolean {
+  if (!url) return false;
+  try {
+    const parsed = new URL(url);
+    return parsed.protocol === "http:" || parsed.protocol === "https:";
+  } catch {
+    return false;
+  }
+}
+
+const rawSupabaseUrl = import.meta.env.PUBLIC_SUPABASE_URL;
+const rawSupabasePublishableKey = import.meta.env.PUBLIC_SUPABASE_PUBLISHABLE_KEY;
+
+const supabaseUrl = normalizeSupabaseUrl(rawSupabaseUrl);
+const supabasePublishableKey = rawSupabasePublishableKey?.trim().replace(/^["']|["']$/g, "");
+
+export const isSupabaseConfigured = Boolean(
+  supabaseUrl && supabasePublishableKey && isValidHttpUrl(supabaseUrl),
+);
 
 const sessionOnlyPreferenceKey = "hls-session-only";
 
@@ -42,13 +70,14 @@ export function setSessionPersistence(staySignedIn: boolean) {
   }
 }
 
-export const supabase = isSupabaseConfigured
-  ? createClient(supabaseUrl, supabasePublishableKey, {
-      auth: {
-        persistSession: typeof window !== "undefined",
-        autoRefreshToken: true,
-        detectSessionInUrl: true,
-        storage: browserAuthStorage,
-      },
-    })
-  : null;
+export const supabase =
+  isSupabaseConfigured && supabaseUrl && supabasePublishableKey
+    ? createClient(supabaseUrl, supabasePublishableKey, {
+        auth: {
+          persistSession: typeof window !== "undefined",
+          autoRefreshToken: true,
+          detectSessionInUrl: true,
+          storage: browserAuthStorage,
+        },
+      })
+    : null;
