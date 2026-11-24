@@ -1,6 +1,6 @@
 import { createClient } from "@supabase/supabase-js";
 
-function normalizeSupabaseUrl(url?: string): string | undefined {
+export function normalizeSupabaseUrl(url?: string): string | undefined {
   if (!url) return undefined;
   const trimmed = url.trim().replace(/^["']|["']$/g, "");
   if (!trimmed) return undefined;
@@ -13,7 +13,7 @@ function normalizeSupabaseUrl(url?: string): string | undefined {
   return trimmed;
 }
 
-function isValidHttpUrl(url?: string): boolean {
+export function isValidHttpUrl(url?: string): boolean {
   if (!url) return false;
   try {
     const parsed = new URL(url);
@@ -33,9 +33,9 @@ export const isSupabaseConfigured = Boolean(
   supabaseUrl && supabasePublishableKey && isValidHttpUrl(supabaseUrl),
 );
 
-const sessionOnlyPreferenceKey = "hls-session-only";
+export const sessionOnlyPreferenceKey = "hls-session-only";
 
-const browserAuthStorage =
+export const browserAuthStorage =
   typeof window === "undefined"
     ? undefined
     : {

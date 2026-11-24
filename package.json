@@ -16,7 +16,12 @@
     "lint": "eslint .",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
-    "test:acdb": "node --experimental-vm-modules --test tests/acdb/handler.test.mjs"
+    "test": "npm run test:unit && npm run test:edge && npm run test:acdb",
+    "test:unit": "vitest run",
+    "test:watch": "vitest",
+    "test:edge": "node --experimental-vm-modules --test tests/edge-functions/notifications.test.mjs",
+    "test:acdb": "node --experimental-vm-modules --test tests/acdb/handler.test.mjs",
+    "test:db": "npx --yes supabase@latest test db"
   },
   "dependencies": {
     "@astrojs/react": "^5.0.7",
@@ -30,12 +35,18 @@
   },
   "devDependencies": {
     "@astrojs/check": "^0.9.12",
+    "@testing-library/jest-dom": "^8.0.0",
+    "@testing-library/react": "^16.3.3",
+    "@testing-library/user-event": "^14.6.13",
+    "@types/node": "^26.6.6",
     "eslint": "^10.15.0",
     "eslint-plugin-astro": "^3.2.1",
     "eslint-plugin-react-hooks": "^7.1.1",
     "eslint-plugin-react-refresh": "^0.5.8",
+    "jsdom": "^31.0.1",
     "prettier": "^3.10.1",
     "typescript": "^5.9.3",
-    "typescript-eslint": "^8.73.0"
+    "typescript-eslint": "^8.73.0",
+    "vitest": "^5.1.1"
   }
 }
